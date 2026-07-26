@@ -39,6 +39,8 @@ python audit_report.py path/to/garak.RUNID.report.jsonl
 
 Early MVP. Built and tested against a live scan of `gpt-4o-mini`, which surfaced real findings (including a >50% success rate on prompt-hijacking attempts). Next steps: broader model/provider support, a wider probe set, and a first real pilot with a design partner.
 
+**[View a sample report →](https://amarisseb.github.io/llm-security-scan-pipeline/sample_report.html)**
+
 ## Why this exists
 
 Most teams shipping an AI feature today are a thin wrapper around an API call and a system prompt, built by people without a security background. This pipeline is the first piece of making it possible for them to find out what's actually vulnerable in their deployment, in language they don't need a security background to understand.
