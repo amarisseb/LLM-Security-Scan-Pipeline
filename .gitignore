@@ -216,3 +216,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Project-specific: never commit garak's raw scan output
+*.report.jsonl
+*.hitlog.jsonl
+*.report.html
+garak_runs/
+
+# Extra secret-file safety net
+*.key
+secrets.*
