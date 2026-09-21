@@ -36,6 +36,17 @@ def category_label(probe_path: str) -> str:
     return gr.CATEGORY_MAP.get(key, {}).get("name", key)
 
 
+def answered_any(report_path: Path) -> bool:
+    """False if the scan got no replies at all, so there is nothing to report.
+    (garak still writes 'eval' entries then, with zero passed and zero failed.)"""
+    gr = _generate_report()
+    return any(
+        r.get("passed", 0) + r.get("fails", 0) > 0
+        for r in gr.load_jsonl(report_path)
+        if r.get("entry_type") == "eval"
+    )
+
+
 def build_report(report_path: Path, scan_id: str, target_url: str) -> dict:
     """Raises ValueError if the report has no results in it."""
     gr = _generate_report()
@@ -52,11 +63,13 @@ def build_report(report_path: Path, scan_id: str, target_url: str) -> dict:
     total_fails = total_evaluated = breached = 0
     for key in gr.ORDER:
         meta = gr.CATEGORY_MAP[key]
-        counts = stats.get(key)
-        tested = counts is not None
-        passed = counts["passed"] if tested else 0
-        fails = counts["fails"] if tested else 0
+        counts = stats.get(key, {})
+        passed = counts.get("passed", 0)
+        fails = counts.get("fails", 0)
         total = passed + fails
+        # A category whose attempts all got no reply has nothing evaluated: that
+        # is "not tested", never "0% exposed".
+        tested = total > 0
         rate = gr.pct(fails, total)
         critical = tested and rate >= CRITICAL_THRESHOLD_PCT
         total_fails += fails

@@ -43,6 +43,10 @@ ERROR_MESSAGES = {
         "We couldn't find a chat box or input field on that page. This scanner works "
         "with public chat widgets and one-shot 'generate' pages."
     ),
+    "no_response": (
+        "We sent messages to that page but it never replied, so there is nothing to report. "
+        "It may not be an AI chat, or it may need a login."
+    ),
     "interrupted": "The scan was interrupted. Please start a new one.",
 }
 DEFAULT_ERROR_MESSAGE = "The scan couldn't be completed. Please try again later."
@@ -237,6 +241,13 @@ def _run_scan_job(scan_id: str, target_url: str):
         store.update(scan_id, status=scan_store.FAILED, error_code="scan_failed",
                      finished_at=scan_store.now_iso())
     else:
+        # A page that took our messages but never answered would otherwise
+        # produce a report reading "0% exposed": a false all-clear.
+        if not results.answered_any(report):
+            logger.warning("scan %s: target never replied", scan_id)
+            store.update(scan_id, status=scan_store.FAILED, error_code="no_response",
+                         finished_at=scan_store.now_iso())
+            return
         logger.info("scan %s finished: %s", scan_id, report)
         store.update(scan_id, status=scan_store.COMPLETE, report_file=report.name,
                      finished_at=scan_store.now_iso())
