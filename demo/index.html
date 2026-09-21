@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arisec · AI security scan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0F1C; --panel:#111A2E; --panel-2:#0D1526; --line:#22304C;
+    --text:#E7ECF6; --muted:#8A96B5;
+    --critical:#FF6B57; --critical-dim:#4A2A28; --warn:#F5B454;
+    --safe:#3FDDA0; --safe-dim:#1E3A31; --accent:#7C9CFF;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;}
+  .wrap{max-width:1080px;margin:0 auto;padding:40px 24px 96px;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+
+  .top{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid var(--line);padding-bottom:24px;margin-bottom:40px;gap:16px;flex-wrap:wrap;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand-mark{width:26px;height:26px;border:2px solid var(--accent);border-radius:6px;position:relative;flex-shrink:0;}
+  .brand-mark::after{content:"";position:absolute;inset:5px;border:2px solid var(--critical);border-radius:3px;}
+  .brand-name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;letter-spacing:.02em;}
+  .brand-sub{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-top:2px;letter-spacing:.03em;}
+  .meta{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);text-align:right;line-height:1.8;word-break:break-all;}
+  .meta b{color:var(--text);font-weight:500;}
+
+  h1{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:34px;line-height:1.15;margin:0 0 10px;letter-spacing:-.01em;}
+  .subhead{color:var(--muted);font-size:15px;max-width:600px;margin:0 0 36px;line-height:1.55;}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px;}
+  label.field{display:block;margin-bottom:20px;}
+  .field .lbl{display:block;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+  input[type=text],input[type=email]{width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;color:var(--text);font:inherit;font-size:15px;padding:12px 14px;outline:none;}
+  input:focus{border-color:var(--accent);}
+  .hint{font-size:12.5px;color:var(--muted);margin-top:8px;line-height:1.5;}
+  .chip{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent);border:1px solid var(--line);border-radius:999px;padding:3px 10px;cursor:pointer;background:none;margin-left:6px;}
+  .chip:hover{border-color:var(--accent);}
+  .attest{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:8px 0 20px;}
+  .attest p{margin:0 0 14px;font-size:13.5px;line-height:1.6;color:#C3CCE3;}
+  .attest label{display:flex;gap:10px;align-items:flex-start;font-size:14px;cursor:pointer;}
+  .attest input{margin-top:3px;accent-color:var(--accent);}
+  .btn{background:var(--accent);color:#0A0F1C;border:0;border-radius:9px;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:15px;padding:13px 26px;cursor:pointer;}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .btn.ghost{background:none;color:var(--text);border:1px solid var(--line);}
+  .error{color:var(--critical);font-size:14px;margin-top:16px;line-height:1.5;}
+
+  /* running */
+  .run-target{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--muted);word-break:break-all;margin-bottom:22px;}
+  .run-target b{color:var(--text);font-weight:500;}
+  .bar{height:10px;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;overflow:hidden;}
+  .bar > div{height:100%;background:var(--accent);border-radius:6px;transition:width .6s ease;}
+  .bar.indeterminate > div{width:30%;animation:slide 1.4s ease-in-out infinite;}
+  @keyframes slide{0%{margin-left:-30%}100%{margin-left:100%}}
+  .run-line{display:flex;justify-content:space-between;margin:14px 0 26px;font-size:14px;gap:12px;flex-wrap:wrap;}
+  .run-line .mono{color:var(--muted);font-size:12px;}
+  .cats{display:flex;gap:10px;flex-wrap:wrap;}
+  .cat-chip{font-size:13px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);color:var(--muted);}
+  .cat-chip.active{color:var(--text);border-color:var(--accent);background:rgba(124,156,255,.1);}
+  .cat-chip.done{color:var(--safe);border-color:var(--safe-dim);}
+  .note{margin-top:26px;font-size:13px;color:var(--muted);line-height:1.6;}
+
+  /* result */
+  .summary{display:grid;grid-template-columns:200px 1fr;gap:36px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:32px;margin-bottom:28px;align-items:center;}
+  .gauge{position:relative;width:160px;height:160px;margin:0 auto;}
+  .gauge svg{transform:rotate(-90deg);}
+  .gauge-num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .gauge-num .n{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:38px;line-height:1;}
+  .gauge-num .l{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:.08em;margin-top:4px;text-transform:uppercase;}
+  .lanes{display:flex;flex-direction:column;gap:14px;}
+  .lane-row{display:grid;grid-template-columns:130px 1fr 52px;align-items:center;gap:14px;}
+  .lane-label{font-size:12.5px;color:var(--muted);}
+  .lane-track{height:8px;background:var(--panel-2);border-radius:4px;overflow:hidden;border:1px solid var(--line);}
+  .lane-fill{height:100%;border-radius:4px;}
+  .lane-pct{font-family:'IBM Plex Mono',monospace;font-size:12px;text-align:right;}
+  .callout{background:var(--panel);border:1px solid var(--critical);border-radius:10px;padding:14px 18px;font-size:14px;margin-bottom:28px;line-height:1.55;}
+  .callout.ok{border-color:var(--safe);}
+  .callout b{color:var(--critical);} .callout.ok b{color:var(--safe);}
+  .section-title{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 18px;}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin-bottom:16px;overflow:hidden;}
+  .card-head{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;cursor:pointer;gap:20px;width:100%;background:none;border:0;color:inherit;font:inherit;text-align:left;}
+  .card-head:hover{background:rgba(255,255,255,.015);}
+  .ch-left{display:flex;align-items:center;gap:16px;min-width:0;}
+  .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+  .dot.critical{background:var(--critical);box-shadow:0 0 0 4px var(--critical-dim);}
+  .dot.safe{background:var(--safe);box-shadow:0 0 0 4px var(--safe-dim);}
+  .dot.untested{background:var(--muted);}
+  .card-title{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:17px;}
+  .card-sub{font-size:13px;color:var(--muted);margin-top:3px;}
+  .badge{font-family:'IBM Plex Mono',monospace;font-size:12px;padding:5px 11px;border-radius:999px;white-space:nowrap;}
+  .badge.critical{color:var(--critical);background:var(--critical-dim);}
+  .badge.safe{color:var(--safe);background:var(--safe-dim);}
+  .badge.untested{color:var(--muted);border:1px solid var(--line);}
+  .card-body{display:none;border-top:1px solid var(--line);padding:22px 24px;}
+  .card.open .card-body{display:block;}
+  .desc{font-size:14px;color:#C3CCE3;line-height:1.6;margin:0 0 20px;}
+  .ev{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:20px;}
+  .ev-label,.pb-label{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+  .ev-row{display:grid;grid-template-columns:64px 1fr;gap:12px;margin-top:10px;}
+  .ev-tag{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent);padding-top:2px;}
+  .ev-text{font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:1.55;color:#C3CCE3;white-space:pre-wrap;word-break:break-word;}
+  .ev-row.ret .ev-text{color:var(--critical);}
+  .pb{font-size:14px;line-height:1.6;}
+  .actions{margin-top:32px;display:flex;gap:12px;}
+  .hidden{display:none !important;}
+
+  @media (max-width:720px){
+    h1{font-size:27px;} .summary{grid-template-columns:1fr;gap:24px;padding:24px;}
+    .lane-row{grid-template-columns:100px 1fr 46px;} .meta{text-align:left;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><div class="brand-mark"></div>
+      <div><div class="brand-name">Arisec</div><div class="brand-sub">AI SECURITY SCAN</div></div></div>
+    <div class="meta" id="meta"></div>
+  </header>
+
+  <!-- 1. start -->
+  <section id="view-start">
+    <h1>How exposed is your AI chatbot?</h1>
+    <p class="subhead">Enter a public page with a chat box. We'll run real attacks against it &mdash; prompt hijacking, jailbreaks, filter evasion, prompt leaks and unsafe content &mdash; and show you exactly what got through.</p>
+    <form class="panel" id="form" autocomplete="off">
+      <label class="field"><span class="lbl">Website or chat page URL <button type="button" class="chip hidden" id="use-demo">use the demo chatbot</button></span>
+        <input type="text" id="url" placeholder="https://your-site.com/chat" required>
+        <div class="hint">Must be a public web page with a chat box or a "generate" style input.</div></label>
+      <label class="field"><span class="lbl">Your email</span>
+        <input type="email" id="email" placeholder="you@company.com" required></label>
+      <div class="attest">
+        <p id="attest-text">Loading&hellip;</p>
+        <label><input type="checkbox" id="agree"><span>I have read and agree to the statement above.</span></label>
+      </div>
+      <button class="btn" id="go" type="submit" disabled>Run scan</button>
+      <div class="error hidden" id="start-error"></div>
+    </form>
+  </section>
+
+  <!-- 2. running -->
+  <section id="view-running" class="hidden">
+    <h1>Scan in progress</h1>
+    <p class="subhead">Each test sends a real attack message to the chat box, in a browser, and records how the bot answers.</p>
+    <div class="panel">
+      <div class="run-target">Target: <b id="run-target"></b></div>
+      <div class="bar indeterminate" id="bar"><div></div></div>
+      <div class="run-line"><span id="run-status">Queued&hellip;</span><span class="mono" id="run-elapsed"></span></div>
+      <div class="cats" id="cats"></div>
+      <div class="note">You can leave this page open or come back later &mdash; the link in your address bar stays valid for this scan.</div>
+    </div>
+  </section>
+
+  <!-- 3. result -->
+  <section id="view-result" class="hidden">
+    <h1>Scan results</h1>
+    <p class="subhead" id="result-sub"></p>
+    <div class="summary">
+      <div class="gauge">
+        <svg width="160" height="160" viewBox="0 0 160 160"><circle cx="80" cy="80" r="70" fill="none" stroke="#0D1526" stroke-width="14"/>
+          <circle id="gauge-arc" cx="80" cy="80" r="70" fill="none" stroke-width="14" stroke-linecap="round" stroke-dasharray="439.8" stroke-dashoffset="439.8"/></svg>
+        <div class="gauge-num"><div class="n" id="gauge-n"></div><div class="l">attacks succeeded</div></div>
+      </div>
+      <div class="lanes" id="lanes"></div>
+    </div>
+    <div class="callout" id="callout"></div>
+    <h2 class="section-title">Findings by category</h2>
+    <div id="cards"></div>
+    <div class="actions"><button class="btn ghost" id="again-1">Scan another site</button></div>
+  </section>
+
+  <!-- 4. failed -->
+  <section id="view-failed" class="hidden">
+    <h1>We couldn't finish this scan</h1>
+    <p class="subhead" id="failed-msg"></p>
+    <div class="actions"><button class="btn" id="again-2">Try again</button></div>
+  </section>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const CATEGORIES = ["Hijacking", "Jailbreak", "Filter evasion", "Prompt leak", "Unsafe content"];
+const SUBTITLES = {
+  promptinject: "hidden instructions in user content", dan: "talking the model out of its guardrails",
+  encoding: "blocked requests smuggled in as Base64, hex, ROT13...", sysprompt_extraction: "extracting the system prompt",
+  donotanswer: "brand and liability risk"
+};
+let attestationVersion = null, pollTimer = null, elapsedTimer = null, startedAt = null, currentTarget = "";
+
+function show(view) {
+  for (const v of ["start", "running", "result", "failed"]) $("view-" + v).classList.toggle("hidden", v !== view);
+  $("meta").innerHTML = "";
+}
+function setMeta(pairs) {
+  $("meta").replaceChildren();
+  for (const [k, v] of pairs) {
+    const line = document.createElement("div");
+    line.append(k + ": ");
+    const b = document.createElement("b"); b.textContent = v; line.append(b);
+    $("meta").append(line);
+  }
+}
+async function api(path, options) {
+  const res = await fetch(path, options);
+  let body = null; try { body = await res.json(); } catch (e) {}
+  return { ok: res.ok, status: res.status, body };
+}
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+/* ---------- start ---------- */
+async function init() {
+  const [att, cfg] = await Promise.all([api("/attestation-text"), api("/demo-config")]);
+  if (att.ok) { attestationVersion = att.body.version; $("attest-text").textContent = att.body.text; }
+  else $("attest-text").textContent = "Couldn't load the authorization statement. Please refresh.";
+  if (cfg.ok && cfg.body.demo_target) {
+    $("use-demo").classList.remove("hidden");
+    $("use-demo").onclick = () => { $("url").value = cfg.body.demo_target; if (!$("email").value) $("email").value = "demo@example.com"; };
+  }
+  const id = (location.hash.match(/scan=([0-9a-f]{32})/) || [])[1];
+  if (id) resume(id); else show("start");
+}
+$("agree").onchange = () => { $("go").disabled = !($("agree").checked && attestationVersion !== null); };
+
+$("form").onsubmit = async (e) => {
+  e.preventDefault();
+  $("start-error").classList.add("hidden");
+  $("go").disabled = true;
+  const r = await api("/scan", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      target_url: $("url").value.trim(), user_email: $("email").value.trim(),
+      attestation_version: attestationVersion, agreed_to_attestation: $("agree").checked,
+    }),
+  });
+  if (!r.ok) {
+    let msg = r.body && r.body.detail;
+    if (Array.isArray(msg)) msg = "Please check the URL and email address and try again.";
+    $("start-error").textContent = msg || "Something went wrong. Please try again.";
+    $("start-error").classList.remove("hidden");
+    $("go").disabled = false;
+    return;
+  }
+  currentTarget = $("url").value.trim();
+  location.hash = "scan=" + r.body.scan_id;
+  startRunning(r.body.scan_id);
+};
+
+/* ---------- running ---------- */
+function resume(id) { currentTarget = ""; startRunning(id); }   // page reload or shared link
+function startRunning(id) {
+  show("running");
+  $("run-target").textContent = currentTarget || "(resuming)";
+  setMeta([["Scan", id.slice(0, 8)]]);
+  const cats = $("cats"); cats.replaceChildren();
+  for (const c of CATEGORIES) { const chip = el("span", "cat-chip", c); chip.dataset.cat = c; cats.append(chip); }
+  startedAt = Date.now();
+  clearInterval(elapsedTimer);
+  elapsedTimer = setInterval(() => {
+    const s = Math.floor((Date.now() - startedAt) / 1000);
+    $("run-elapsed").textContent = String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+  }, 1000);
+  poll(id);
+}
+async function poll(id) {
+  clearTimeout(pollTimer);
+  const r = await api("/scan/" + id);
+  if (!r.ok) {
+    if (r.status === 404) return fail("We couldn't find that scan. It may have expired.");
+    pollTimer = setTimeout(() => poll(id), 4000); return;   // transient: keep trying
+  }
+  const s = r.body;
+  if (s.status === "complete") { clearInterval(elapsedTimer); return loadReport(id); }
+  if (s.status === "failed") { clearInterval(elapsedTimer); return fail(s.error ? s.error.message : "The scan couldn't be completed."); }
+
+  const p = s.progress;
+  const bar = $("bar");
+  if (p) {
+    bar.classList.remove("indeterminate");
+    bar.firstElementChild.style.width = Math.round(((p.step - 1) / p.of) * 100) + "%";
+    $("run-status").textContent = "Test " + p.step + " of " + p.of + " · " + p.category;
+    document.querySelectorAll(".cat-chip").forEach((chip) => {
+      chip.classList.toggle("active", chip.dataset.cat === p.category);
+    });
+  } else {
+    $("run-status").textContent = s.status === "queued" ? "Waiting for a free scanner…" : "Starting up…";
+  }
+  pollTimer = setTimeout(() => poll(id), 2000);
+}
+
+/* ---------- result ---------- */
+async function loadReport(id) {
+  const r = await api("/scan/" + id + "/report");
+  if (!r.ok) return fail("The scan finished but we couldn't load the results. Please try again.");
+  render(r.body);
+}
+function render(rep) {
+  show("result");
+  setMeta([["Target", rep.target], ["Scan", rep.scan_id.slice(0, 8)], ["Date", new Date(rep.generated_at).toLocaleDateString()]]);
+  const o = rep.overall, critical = o.exposed_pct >= 10;
+  const color = critical ? "var(--critical)" : "var(--safe)";
+  $("result-sub").textContent = "We ran " + o.evaluated + " attack attempts against " + rep.target + ".";
+  $("gauge-n").textContent = o.exposed_pct + "%"; $("gauge-n").style.color = color;
+  const arc = $("gauge-arc"); arc.setAttribute("stroke", critical ? "#FF6B57" : "#3FDDA0");
+  requestAnimationFrame(() => arc.setAttribute("stroke-dashoffset", (439.8 * (1 - o.exposed_pct / 100)).toFixed(1)));
+
+  const lanes = $("lanes"); lanes.replaceChildren();
+  const cards = $("cards"); cards.replaceChildren();
+  for (const c of rep.categories) {
+    const state = !c.tested ? "untested" : c.critical ? "critical" : "safe";
+    const row = el("div", "lane-row");
+    row.append(el("div", "lane-label", c.name));
+    const track = el("div", "lane-track"), fill = el("div", "lane-fill");
+    fill.style.width = (c.tested ? c.exposed_pct : 0) + "%";
+    fill.style.background = state === "critical" ? "var(--critical)" : "var(--safe)";
+    track.append(fill); row.append(track);
+    row.append(el("div", "lane-pct", c.tested ? c.exposed_pct + "%" : "—"));
+    lanes.append(row);
+
+    const card = el("div", "card" + (c.critical ? " open" : ""));
+    const head = el("button", "card-head"); head.type = "button";
+    const left = el("div", "ch-left");
+    left.append(el("span", "dot " + state));
+    const titles = el("div");
+    titles.append(el("div", "card-title", c.name), el("div", "card-sub", SUBTITLES[c.key] || ""));
+    left.append(titles); head.append(left);
+    head.append(el("span", "badge " + state,
+      !c.tested ? "not tested" : c.fails + " of " + c.total + " succeeded"));
+    head.onclick = () => card.classList.toggle("open");
+    const body = el("div", "card-body");
+    body.append(el("p", "desc", c.description));
+    if (c.evidence) {
+      const ev = el("div", "ev"); ev.append(el("div", "ev-label", "Evidence"));
+      const sent = el("div", "ev-row"); sent.append(el("div", "ev-tag", "Sent"), el("div", "ev-text", c.evidence.sent));
+      const ret = el("div", "ev-row ret"); ret.append(el("div", "ev-tag", "Returned"), el("div", "ev-text", c.evidence.returned));
+      ev.append(sent, ret); body.append(ev);
+    }
+    if (c.tested) {
+      body.append(el("div", "pb-label", c.critical ? "Playbook · immediate" : "Playbook · maintain"), el("div", "pb", c.recommendation));
+    }
+    card.append(head, body); cards.append(card);
+  }
+  const callout = $("callout");
+  callout.className = "callout" + (o.categories_breached ? "" : " ok");
+  callout.replaceChildren();
+  if (o.categories_breached) {
+    const b = el("b", "", o.categories_breached + " of " + o.categories_total + " categories exposed. ");
+    callout.append(b, "Start with the red categories below — each has the exact attack that worked and how to fix it.");
+  } else {
+    callout.append(el("b", "", "No category crossed the exposure threshold. "), "Re-test whenever your prompt or model changes.");
+  }
+}
+
+/* ---------- failed / reset ---------- */
+function fail(message) { show("failed"); $("failed-msg").textContent = message; }
+function reset() {
+  clearTimeout(pollTimer); clearInterval(elapsedTimer);
+  history.replaceState(null, "", location.pathname);
+  $("go").disabled = !$("agree").checked;
+  show("start");
+}
+$("again-1").onclick = reset; $("again-2").onclick = reset;
+
+init();
+</script>
+</body>
+</html>

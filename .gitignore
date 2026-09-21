@@ -226,3 +226,6 @@ garak_runs/
 # Extra secret-file safety net
 *.key
 secrets.*
+
+# Project-specific: attestation log holds user emails and IPs -- never commit
+attestation_log/
