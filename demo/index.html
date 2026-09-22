@@ -78,6 +78,7 @@
   .callout{background:var(--panel);border:1px solid var(--critical);border-radius:10px;padding:14px 18px;font-size:14px;margin-bottom:28px;line-height:1.55;}
   .callout.ok{border-color:var(--safe);}
   .callout b{color:var(--critical);} .callout.ok b{color:var(--safe);}
+  .callout.warn{border-color:var(--warn);} .callout.warn b{color:var(--warn);}
   .section-title{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 18px;}
 
   .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin-bottom:16px;overflow:hidden;}
@@ -165,6 +166,7 @@
       </div>
       <div class="lanes" id="lanes"></div>
     </div>
+    <div class="callout warn hidden" id="aicheck"></div>
     <div class="callout" id="callout"></div>
     <h2 class="section-title">Findings by category</h2>
     <div id="cards"></div>
@@ -175,7 +177,8 @@
   <section id="view-failed" class="hidden">
     <h1>We couldn't finish this scan</h1>
     <p class="subhead" id="failed-msg"></p>
-    <div class="actions"><button class="btn" id="again-2">Try again</button></div>
+    <div class="actions"><button class="btn" id="again-2">Try again</button>
+      <button class="btn ghost hidden" id="override">It's a scoped assistant &mdash; scan anyway</button></div>
   </section>
 </div>
 
@@ -228,18 +231,14 @@ async function init() {
 }
 $("agree").onchange = () => { $("go").disabled = !($("agree").checked && attestationVersion !== null); };
 
-$("form").onsubmit = async (e) => {
-  e.preventDefault();
+let lastBody = null;
+async function startScan(body) {
+  lastBody = body;
   $("start-error").classList.add("hidden");
   $("go").disabled = true;
-  const r = await api("/scan", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      target_url: $("url").value.trim(), user_email: $("email").value.trim(),
-      attestation_version: attestationVersion, agreed_to_attestation: $("agree").checked,
-    }),
-  });
+  const r = await api("/scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!r.ok) {
+    show("start");
     let msg = r.body && r.body.detail;
     if (Array.isArray(msg)) msg = "Please check the URL and email address and try again.";
     $("start-error").textContent = msg || "Something went wrong. Please try again.";
@@ -247,10 +246,19 @@ $("form").onsubmit = async (e) => {
     $("go").disabled = false;
     return;
   }
-  currentTarget = $("url").value.trim();
+  currentTarget = body.target_url;
   location.hash = "scan=" + r.body.scan_id;
   startRunning(r.body.scan_id);
+}
+$("form").onsubmit = (e) => {
+  e.preventDefault();
+  startScan({
+    target_url: $("url").value.trim(), user_email: $("email").value.trim(),
+    attestation_version: attestationVersion, agreed_to_attestation: $("agree").checked,
+  });
 };
+// For a tightly scoped assistant that refuses the two questions we ask before attacking.
+$("override").onclick = () => startScan({ ...lastBody, skip_ai_check: true });
 
 /* ---------- running ---------- */
 function resume(id) { currentTarget = ""; startRunning(id); }   // page reload or shared link
@@ -277,7 +285,7 @@ async function poll(id) {
   }
   const s = r.body;
   if (s.status === "complete") { clearInterval(elapsedTimer); return loadReport(id); }
-  if (s.status === "failed") { clearInterval(elapsedTimer); return fail(s.error ? s.error.message : "The scan couldn't be completed."); }
+  if (s.status === "failed") { clearInterval(elapsedTimer); return fail(s.error ? s.error.message : "The scan couldn't be completed.", s.error && s.error.code); }
 
   const p = s.progress;
   const bar = $("bar");
@@ -328,7 +336,8 @@ function render(rep) {
     const left = el("div", "ch-left");
     left.append(el("span", "dot " + state));
     const titles = el("div");
-    titles.append(el("div", "card-title", c.name), el("div", "card-sub", SUBTITLES[c.key] || ""));
+    const note = c.attempts_unanswered > 0 ? " · " + c.attempts_unanswered + " of " + c.attempts_sent + " unanswered" : "";
+    titles.append(el("div", "card-title", c.name), el("div", "card-sub", (SUBTITLES[c.key] || "") + note));
     left.append(titles); head.append(left);
     head.append(el("span", "badge " + state,
       !c.tested ? "not tested" : c.fails + " of " + c.total + " succeeded"));
@@ -346,6 +355,19 @@ function render(rep) {
     }
     card.append(head, body); cards.append(card);
   }
+  // The page didn't answer two simple questions like an AI would: a clean score may then mean "nothing to attack".
+  const ac = $("aicheck"); ac.replaceChildren();
+  const unconfirmed = !!rep.target_check && rep.target_check.ai_confirmed === false;
+  ac.classList.toggle("hidden", !unconfirmed);
+  if (unconfirmed) {
+    ac.append(el("b", "", "We couldn't confirm an AI model is behind this page. "),
+      "It didn't answer two simple questions the way an AI would. If it isn't an AI, a low score below doesn't mean it's secure — there was nothing to attack. If it's a tightly scoped assistant, the results are still valid.");
+  }
+  if (o.low_coverage) {
+    ac.classList.remove("hidden");
+    ac.append(el("b", "", (unconfirmed ? " " : "") + "Many of our messages got no reply. "),
+      o.attempts_unanswered + " of " + o.attempts_sent + " went unanswered, so the percentages describe only the answers we did get.");
+  }
   const callout = $("callout");
   callout.className = "callout" + (o.categories_breached ? "" : " ok");
   callout.replaceChildren();
@@ -358,7 +380,11 @@ function render(rep) {
 }
 
 /* ---------- failed / reset ---------- */
-function fail(message) { show("failed"); $("failed-msg").textContent = message; }
+function fail(message, code) {
+  show("failed"); $("failed-msg").textContent = message;
+  // Only offered when the scan was stopped by the "does it answer like an AI" gate, and we still have the request.
+  $("override").classList.toggle("hidden", !(code === "ai_not_confirmed" && lastBody));
+}
 function reset() {
   clearTimeout(pollTimer); clearInterval(elapsedTimer);
   history.replaceState(null, "", location.pathname);

@@ -55,6 +55,7 @@ def log_attestation(
     user_email: str,
     target_url: str,
     version: int = CURRENT_ATTESTATION_VERSION,
+    skip_ai_check: bool = False,
     log_path: str | os.PathLike | None = None,
 ) -> dict:
     """Append one attestation record and return it.
@@ -70,11 +71,18 @@ def log_attestation(
         "target_url": target_url,
         "attestation_version": version,
         "attestation_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+        # Overriding the "does it answer like an AI" gate is a decision the user
+        # made about their target, so it belongs on the record.
+        "skip_ai_check": skip_ai_check,
     }
 
     path = Path(log_path or os.getenv("ATTESTATION_LOG_PATH", _DEFAULT_LOG_PATH))
     path.parent.mkdir(parents=True, exist_ok=True)
-    line = json.dumps(record, ensure_ascii=False) + "\n"
+    # U+0085 (NEL), U+2028 and U+2029 are legal inside a JSON string but
+    # str.splitlines() treats them as line breaks, so a URL containing one could
+    # split a record in two for anyone reading the log that way. Escape them.
+    line = json.dumps(record, ensure_ascii=False)
+    line = line.replace("\u0085", "\\u0085").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029") + "\n"
     with _write_lock:
         with open(path, "a", encoding="utf-8") as f:
             f.write(line)

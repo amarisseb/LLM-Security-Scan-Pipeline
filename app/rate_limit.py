@@ -18,6 +18,7 @@ between workers. Swap the storage (Redis, a database) before running more than
 one process; check_and_record() is the only method callers use.
 """
 
+import ipaddress
 import os
 import threading
 import time
@@ -30,7 +31,18 @@ DAY = 86400
 
 # Second-level labels that make "example.co.uk" one registrable domain, not "co.uk".
 # A heuristic standing in for the Public Suffix List (add `tldextract` to make it exact).
-_SECOND_LEVEL_LABELS = {"co", "com", "org", "net", "gov", "edu", "ac"}
+_SECOND_LEVEL_LABELS = {"co", "com", "org", "net", "gov", "edu", "ac", "or", "ne", "go", "ed", "gob"}
+
+# Hosts where every customer gets a subdomain of the same name. "a.nip.io" and
+# "b.nip.io" are unrelated sites, so the registrable domain is one label more.
+# (Also a stand-in for the Public Suffix List's private section.)
+_SHARED_HOSTING_SUFFIXES = {
+    "nip.io", "sslip.io", "xip.io", "traefik.me", "github.io", "gitlab.io",
+    "herokuapp.com", "vercel.app", "netlify.app", "pages.dev", "workers.dev",
+    "web.app", "firebaseapp.com", "azurewebsites.net", "cloudfront.net",
+    "onrender.com", "lovable.app", "lovableproject.com", "fly.dev",
+    "ngrok.io", "ngrok-free.app", "repl.co", "glitch.me",
+}
 
 _SWEEP_INTERVAL = 600
 
@@ -49,9 +61,28 @@ def registrable_domain(url: str) -> str:
     labels = host.split(".")
     if len(labels) <= 2 or host.replace(".", "").isdigit() or ":" in host:
         return host
+    for suffix in _SHARED_HOSTING_SUFFIXES:
+        if host.endswith("." + suffix):
+            depth = suffix.count(".") + 2  # the suffix's labels plus the customer's
+            return ".".join(labels[-depth:])
     if len(labels[-1]) == 2 and labels[-2] in _SECOND_LEVEL_LABELS:
         return ".".join(labels[-3:])
     return ".".join(labels[-2:])
+
+
+def _ip_bucket(ip: str) -> str:
+    """The unit an IP limit applies to. An IPv6 customer normally holds a whole
+    /64 (2^64 addresses), so limiting single addresses would let one client
+    rotate through them for free; limit the /64 instead."""
+    try:
+        address = ipaddress.ip_address(ip)
+    except ValueError:
+        return ip or "unknown"
+    if address.version == 6:
+        if address.ipv4_mapped:
+            return str(address.ipv4_mapped)
+        return str(ipaddress.ip_network(f"{address}/64", strict=False))
+    return str(address)
 
 
 class ScanRateLimiter:
@@ -84,7 +115,7 @@ class ScanRateLimiter:
     ) -> RateLimitResult:
         """Check every limit and, if the scan is allowed, count it. One atomic step."""
         domain = registrable_domain(target_url)
-        keys = (f"email:{user_email.strip().lower()}", f"ip:{client_ip or 'unknown'}")
+        keys = (f"email:{user_email.strip().lower()}", f"ip:{_ip_bucket(client_ip)}")
 
         with self._lock:
             now = self._clock()

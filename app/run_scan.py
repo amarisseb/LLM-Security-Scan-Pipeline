@@ -12,6 +12,7 @@ Usage from a shell:
 
 import argparse
 import datetime
+import json
 import logging
 import random
 import threading
@@ -21,6 +22,7 @@ import garak.evaluators
 from garak import _config, _plugins, command
 
 from . import browser_generator  # noqa: F401  (registers generators.browser with garak)
+from .browser_generator import AiNotConfirmed
 
 logger = logging.getLogger(__name__)
 
@@ -43,9 +45,14 @@ PROBES = [
 DEFAULT_GENERATIONS = 1
 DEFAULT_PROMPT_CAP = 10
 
-# Which prompts survive the cap is a seeded sample, not the first N or a fresh
-# random draw, so re-scanning after a fix tests the same prompts.
-SAMPLE_SEED = 0
+# Written next to the report: whether the target answered a simple question like
+# an AI would. See BrowserGenerator.responds_like_ai.
+TARGET_CHECK_FILE = "target_check.json"
+
+# Which prompts a probe uses is seeded, not a fresh random draw, so re-scanning
+# after a fix tests the same prompts. garak's own sampling uses the global
+# `random`, so it is seeded just before each probe is created (see _capping_loader).
+SAMPLE_SEED = 20250101  # non-zero: some code treats a seed of 0 as "no seed"
 
 # garak keeps its configuration and plugin instances in process-wide globals,
 # so two scans can't run at the same time in one process.
@@ -60,6 +67,7 @@ def run_scan(
     prompt_cap: int = DEFAULT_PROMPT_CAP,
     generator_options: dict | None = None,
     on_progress=None,
+    require_ai_confirmation: bool = True,
 ) -> Path:
     """Scan `target_url` and return the path of the report.jsonl.
 
@@ -68,6 +76,13 @@ def run_scan(
 
     generator_options tunes BrowserGenerator for this target, e.g.
     {"settle_ms": 6000} for a bot that pauses mid-answer.
+
+    Before any attack is sent, the page is asked two simple questions. If it
+    doesn't answer them like an AI, the scan stops with AiNotConfirmed, so a
+    login form, contact form or search box isn't sent hundreds of attack
+    messages. A tightly scoped assistant may refuse those questions, so the
+    caller can pass require_ai_confirmation=False to scan anyway; the report
+    then carries a caveat.
 
     Raises if the target can't be driven (unsafe URL, no chat input found) or
     the run fails partway; a half-finished report file is left in output_dir.
@@ -80,11 +95,13 @@ def run_scan(
             prompt_cap,
             generator_options or {},
             on_progress,
+            require_ai_confirmation,
         )
 
 
 def _run_scan(
-    target_url, output_dir, generations, prompt_cap, generator_options, on_progress
+    target_url, output_dir, generations, prompt_cap, generator_options, on_progress,
+    require_ai_confirmation,
 ) -> Path:
     output_dir = output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -100,6 +117,9 @@ def _run_scan(
     _config.system.lite = False
     _config.run.generations = generations
     _config.run.soft_probe_prompt_cap = prompt_cap
+    # garak's promptinject probes reseed Python's RNG from run.seed (None by
+    # default, i.e. from entropy) while choosing their prompts.
+    _config.run.seed = SAMPLE_SEED
     _config.reporting.report_dir = str(output_dir)
 
     # The same settings `--target_type browser --target_name <url>` would make.
@@ -118,6 +138,13 @@ def _run_scan(
     generator = _plugins.load_plugin("generators.browser", config_root=_config)
     try:
         generator.preflight()  # fail fast if there's nothing to talk to
+        # Recorded beside the report, not in it: the report stays a plain garak file.
+        ai_confirmed = generator.responds_like_ai()
+        (output_dir / TARGET_CHECK_FILE).write_text(
+            json.dumps({"ai_confirmed": ai_confirmed}), encoding="utf-8"
+        )
+        if require_ai_confirmation and not ai_confirmed:
+            raise AiNotConfirmed("target did not answer simple questions like an AI")
         command.start_run()
         real_load_plugin = _plugins.load_plugin
         _plugins.load_plugin = _capping_loader(
@@ -149,6 +176,8 @@ def _capping_loader(load_plugin, cap, on_progress=None, total_probes=0):
 
     def load(path, *args, **kwargs):
         nonlocal started
+        if str(path).startswith("probes."):
+            random.seed(SAMPLE_SEED)  # garak samples with the global RNG when building a probe
         plugin = load_plugin(path, *args, **kwargs)
         if plugin and str(path).startswith("probes."):
             _enforce_prompt_cap(plugin, str(path), cap)
@@ -165,12 +194,12 @@ def _capping_loader(load_plugin, cap, on_progress=None, total_probes=0):
 
 def _enforce_prompt_cap(probe, name, cap):
     prompts = getattr(probe, "prompts", None)
-    if not isinstance(prompts, list) or len(prompts) <= cap:
+    if not isinstance(prompts, (list, tuple)) or len(prompts) <= cap:
         return
     keep = sorted(random.Random(SAMPLE_SEED).sample(range(len(prompts)), cap))
     probe.prompts = [prompts[i] for i in keep]
     triggers = getattr(probe, "triggers", None)
-    if isinstance(triggers, list) and len(triggers) == len(prompts):
+    if isinstance(triggers, (list, tuple)) and len(triggers) == len(prompts):
         probe.triggers = [triggers[i] for i in keep]  # stay aligned with prompts
     logger.info("%s: sampled %d of %d prompts", name, cap, len(prompts))
 

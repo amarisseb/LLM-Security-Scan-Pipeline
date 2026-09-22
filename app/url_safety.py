@@ -38,6 +38,14 @@ _DEFAULT_PORTS = {"http": 80, "https": 443}
 
 _NAT64_PREFIX = ipaddress.ip_network("64:ff9b::/96")
 
+# Special-use ranges that Python's flags call "global" but that are not public
+# hosts: deprecated site-local IPv6, the 6to4 relay anycast block, the IPv6
+# discard prefix, and the documentation prefix.
+_EXTRA_BLOCKED_NETWORKS = [
+    ipaddress.ip_network(n)
+    for n in ("fec0::/10", "192.88.99.0/24", "100::/64", "2001:db8::/32")
+]
+
 
 @dataclass(frozen=True)
 class UrlSafetyResult:
@@ -85,6 +93,9 @@ def _ip_problem(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> str | None
         return f"{ip} is reserved"
     if ip.is_multicast:
         return f"{ip} is multicast"
+    for network in _EXTRA_BLOCKED_NETWORKS:
+        if ip.version == network.version and ip in network:
+            return f"{ip} is in special-use range {network}"
     # Catches what the flags above miss, e.g. carrier-grade NAT 100.64.0.0/10.
     if not ip.is_global:
         return f"{ip} is not a globally routable address"

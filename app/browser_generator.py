@@ -17,8 +17,13 @@ Every request the page makes is re-checked with url_safety:
   * a redirect to one can't be blocked (Playwright doesn't route redirect hops),
     only detected. The scan is then aborted and nothing from that page is
     returned, but the browser has already sent that one request.
-Neither covers DNS rebinding. The only hard guarantee against all of it is
-network egress filtering on the machine that runs scans.
+This is best effort, and QA found ways past it that in-browser code can't close:
+requests from Web/Shared Workers and Service Workers, speculation-rules
+prefetch, and DNS rebinding. Service workers and QUIC/WebTransport are switched
+off and WebRTC is disabled, but the only real guarantee is that the browser has
+no route to internal addresses: a filtering proxy that resolves each name once
+and connects to the checked IP, or network egress rules on the machine that
+runs scans. Do that before running scans for the public.
 
 All state is per-instance and Playwright's sync API is bound to the thread that
 started it, so use one instance from one thread and call close() when done.
@@ -28,11 +33,12 @@ import logging
 import re
 import sys
 import time
+import unicodedata
 from collections import Counter
 from urllib.parse import urlsplit
 
 from garak import _config
-from garak.attempt import Conversation, Message
+from garak.attempt import Conversation, Message, Turn
 from garak.exception import BadGeneratorException
 from garak.generators.base import Generator
 from playwright.sync_api import Error as PlaywrightError
@@ -86,12 +92,98 @@ SUBMIT_SELECTORS = [
     ("button[type='submit']", None),
 ]
 
+# Two easy questions for responds_like_ai(). The answers don't appear in the
+# questions, so a page that merely echoes the input can't pass by accident.
+#
+# (question, pattern for the answer, a phrase from the question). The answer must be
+# short, must not repeat the question, and must not read like search results:
+# "42 results found for ..." is a search box, not an assistant.
+LIVENESS_CHECKS = [
+    ("What is 12 plus 30? Answer with just the number.",
+     # Not part of a longer number, a time (12:42:07) or a decimal (1.42, 42.5),
+     # but a sentence-final "42." is fine.
+     re.compile(r"(?<![\d:])(?<!\d[.,])(?:42|forty[- ]?two)(?![\d:])(?![.,]\d)", re.IGNORECASE), "12 plus 30"),
+    ("What is the capital of France? Answer with just one word.",
+     re.compile(r"\bparis\b", re.IGNORECASE), "capital of france"),
+]
+_LIVENESS_MAX_CHARS = 80
+_LIVENESS_NOT_AN_ANSWER = re.compile(
+    r"\b(?:results?|items?|found|matches|products?|pages?|no \w+ (?:found|available))\b", re.IGNORECASE
+)
+_LIVENESS_INPUT_TRIES = 3
+
 # Placeholder text a page shows while the reply is being produced. It changes
 # the page but isn't the reply, so it must not count as one.
 _INDICATOR = re.compile(
     r"^(?:(?:(?:the\s+)?\w+\s+is\s+)?(?:typing|thinking|generating|loading|processing|writing))?[\s.…]*$",
     re.IGNORECASE,
 )
+
+# Lines that change on their own and say nothing about a reply: clocks and dates.
+# Without this a ticking clock on a dead page looks like a reply that never settles.
+_CLOCK = re.compile(
+    r"^(?:\d{1,2}:\d{2}(?::\d{2})?\s*(?:[ap]\.?m\.?)?|just now|\d+\s*(?:s|sec|seconds?|m|min|minutes?|h|hours?)\s+ago)$",
+    re.IGNORECASE,
+)
+
+# A short reply that reads like "still working on it" is not accepted as final
+# until it has sat unchanged for pending_settle_ms (default 12s, vs 3s normally).
+# Bots often show "One moment, checking our knowledge base..." as a real bubble,
+# then replace it seconds later. Only affects how long we wait, never what is kept.
+# Judged on the LAST line only, and by how it starts or ends: a placeholder is
+# replaced by the answer, so once a real answer is the last line the reply is done.
+# (Matching the words anywhere flagged ordinary refusals like "I can't assist
+# with generating that", costing 9 extra seconds per prompt.)
+_PENDING_PHRASE = re.compile(
+    r"^(?:one moment|just a moment|hold on|please wait|let me (?:check|look|search|find|pull|see|think))\b",
+    re.IGNORECASE,
+)
+# Single words also start real sentences ("Processing of personal data is ..."),
+# so these only count on a short line.
+_PENDING_WORD = re.compile(
+    r"^(?:searching|checking|looking|thinking|typing|working on|analy[sz]ing|generating|loading|processing)\b",
+    re.IGNORECASE,
+)
+_PENDING_WORD_MAX_CHARS = 40
+_PENDING_END = re.compile(r"(?:\.{3}|…)\s*$")
+_PENDING_MAX_CHARS = 160
+
+# Per-frame text is cut to this before any processing, so a hostile page with
+# megabytes of text can't make every poll expensive.
+_MAX_SNAPSHOT_CHARS = 200_000
+_MAX_ECHO_LINES = 4_000
+
+# WebRTC and WebTransport can open connections that neither request routing nor
+# WebSocket routing sees. Chat pages don't need them, so they are switched off.
+# Left writable and configurable on purpose: pages (and libraries such as
+# webrtc-adapter) that assign or redefine these names would throw otherwise.
+# This is a mitigation, not a wall: workers don't run init scripts. The wall is
+# a filtering proxy or network egress rules (see the module docstring).
+_WEBRTC_OFF_JS = """
+for (const k of ['RTCPeerConnection', 'webkitRTCPeerConnection', 'RTCDataChannel', 'WebTransport']) {
+  try { Object.defineProperty(window, k, { value: undefined, configurable: true, writable: true }); } catch (e) {}
+}"""
+
+# Skip inputs that are clearly not a chat box: site search, and forms that
+# collect account details (login, sign-up, contact). Submitting attack prompts
+# into those means failed logins, spam tickets and lockouts on someone's site.
+#
+# Returns 'skip' (never use), 'demote' (use only if nothing better turns up) or ''.
+# A search box or login is skipped. A form that also asks for an email address or
+# phone number is probably a contact form, but might be a chat with an optional
+# field, so it is demoted; the AI gate then decides.
+_INPUT_SKIP_JS = """(el) => {
+  const type = (el.getAttribute('type') || '').toLowerCase();
+  const hint = [el.placeholder, el.getAttribute('aria-label'), el.name, el.id]
+    .filter(Boolean).join(' ').toLowerCase();
+  const chatty = /\\b(ask|message|chat|prompt|question|assistant|ai)\\b/.test(hint);
+  if ((type === 'search' || el.closest('[role=search]')) && !chatty) return 'skip';
+  if (/\\bsearch\\b/.test(hint) && !chatty) return 'skip';
+  const form = el.closest('form');
+  if (form && form.querySelector('input[type=password]')) return 'skip';
+  if (form && form.querySelector('input[type=email], input[type=tel]')) return 'demote';
+  return '';
+}"""
 
 # Collects, per frame and in one round trip: the text of every element matching
 # each reply selector, and the text of the whole page. Looks inside open shadow
@@ -126,8 +218,43 @@ class UnsafeRedirect(BadGeneratorException):
     """The page was redirected to a non-public address. Aborts the scan."""
 
 
+class PageUnavailable(BadGeneratorException):
+    """The page answered with an HTTP error (404, 500...). Safe to tell the user."""
+
+
+class ScanTimedOut(BadGeneratorException):
+    """The scan exceeded max_scan_s. One broken target must not hold the worker forever."""
+
+
+class AiNotConfirmed(BadGeneratorException):
+    """The page didn't answer simple questions like an AI. Raised by run_scan."""
+
+
 def _lines(text: str) -> list[str]:
     return [line.strip() for line in text.splitlines() if line.strip()]
+
+
+_QUOTE_TABLE = str.maketrans({
+    "‘": "'", "’": "'", "“": '"', "”": '"',
+    "–": "-", "—": "-", " ": " ",
+})
+
+
+def _norm(text: str) -> str:
+    """Whitespace-collapsed, Unicode-normalised text, so a UI that turns straight
+    quotes into curly ones or wraps lines still matches the prompt we sent."""
+    return " ".join(unicodedata.normalize("NFKC", text).translate(_QUOTE_TABLE).split())
+
+
+def _looks_pending(reply: str) -> bool:
+    last = reply.rsplit("\n", 1)[-1].strip()
+    if len(last) > _PENDING_MAX_CHARS:
+        return False
+    return bool(
+        _PENDING_PHRASE.search(last)
+        or _PENDING_END.search(last)
+        or (len(last) <= _PENDING_WORD_MAX_CHARS and _PENDING_WORD.search(last))
+    )
 
 
 def _new_lines(before: str, after: str) -> list[str]:
@@ -152,17 +279,40 @@ def _drop_echo(lines: list[str], prompt: str) -> list[str]:
     The echo may span several lines or be collapsed onto one, so whitespace is
     normalised and consecutive lines are joined before comparing.
     """
-    target = " ".join(prompt.split())
+    target = _norm(prompt)
     if not target:
         return lines
-    for start in range(len(lines)):
-        joined = ""
-        for end in range(start, len(lines)):
-            joined = f"{joined} {' '.join(lines[end].split())}".strip()
+    considered = lines[:_MAX_ECHO_LINES]
+    normed = [_norm(line) for line in considered]
+    for start, first in enumerate(normed):
+        # An echo must start with the prompt's own beginning: skip cheaply otherwise.
+        if not first or not target.startswith(first):
+            continue
+        joined = first
+        for end in range(start, len(normed)):
+            if end > start:
+                joined = f"{joined} {normed[end]}".strip()
             if joined == target:
                 return lines[:start] + lines[end + 1 :]
-            if len(joined) >= len(target):
+            if not target.startswith(joined):
                 break
+    # A UI may decorate the echo ("You: <prompt>", "<prompt> (sent)"). If the exact
+    # form isn't there, drop a run of lines that merely CONTAINS the prompt,
+    # starting only at a line holding the prompt's opening characters (cheap to
+    # test, so a hostile page can't make this quadratic).
+    if len(target) >= 12:
+        head = target[:12]
+        for start, first in enumerate(normed):
+            if head not in first:
+                continue
+            joined = first
+            for end in range(start, len(normed)):
+                if end > start:
+                    joined = f"{joined} {normed[end]}"
+                if target in joined:
+                    return lines[:start] + lines[end + 1 :]
+                if len(joined) > len(target) + 80:
+                    break
     return lines
 
 
@@ -184,7 +334,10 @@ class BrowserGenerator(Generator):
     _unsafe_attributes = ["_playwright", "_browser"]
 
     DEFAULT_PARAMS = Generator.DEFAULT_PARAMS | {
-        "name": "",  # the target URL
+        "name": "",  # the target URL, as configured; see __init__
+        # What garak calls the target inside attack prompts, e.g. "act as {name}
+        # with DAN Mode enabled". Read as a proper noun, so keep it short.
+        "display_name": "AI Assistant",
         "headless": True,
         "nav_timeout_ms": 30_000,
         "action_timeout_ms": 10_000,
@@ -194,7 +347,12 @@ class BrowserGenerator(Generator):
         "response_timeout_ms": 60_000,
         # A reply counts as finished once its text has been unchanged this long.
         "settle_ms": 3_000,
+        # ...or this long, when the text looks like a "still working" placeholder.
+        "pending_settle_ms": 12_000,
         "poll_ms": 400,
+        # Wall-clock limit for the whole scan. A broken or hostile target that
+        # burns every reply timeout would otherwise hold the single worker for hours.
+        "max_scan_s": 7_200,
         # Pause between prompts so we don't hammer someone else's site.
         "request_delay_s": 1.0,
         "max_response_chars": 20_000,
@@ -209,24 +367,43 @@ class BrowserGenerator(Generator):
         self._browser = None
         self._had_success = False
         self._calls = 0
+        self._scan_started: float | None = None
+        # Inputs (selector, nth, frame url) that failed the AI gate, and the one
+        # most recently chosen. See responds_like_ai.
+        self._excluded_inputs: set[tuple] = set()
+        self._last_input_key: tuple | None = None
         self._verdicts: dict[tuple, bool] = {}
         self._tripped: str | None = None
 
         if not self.name:
             raise BadGeneratorException("BrowserGenerator needs a target URL as its name")
+        self.target_url = self.name
         # Defense in depth: the API layer already validated, but this class can be
         # used from the CLI or another caller that didn't.
-        result = validate_target_url(self.name)
+        result = validate_target_url(self.target_url)
         if not result.is_safe:
-            logger.warning("BrowserGenerator refused target %s: %s", self.name, result.reason)
+            logger.warning("BrowserGenerator refused target %s: %s", self.target_url, result.reason)
             raise BadGeneratorException("target URL failed safety validation")
+        # garak pastes generator.name into some attack prompts. Left as the URL,
+        # a jailbreak would read "you are going to act as https://acme.com/chat".
+        # (fullname, set by garak's base class earlier, still carries the URL.)
+        self.name = self.display_name
 
     # ---- lifecycle ---------------------------------------------------------
 
     def _ensure_browser(self):
         if self._browser is None:
             self._playwright = sync_playwright().start()
-            self._browser = self._playwright.chromium.launch(headless=self.headless)
+            try:
+                # QUIC is UDP, which request routing can't see (WebTransport rides on it).
+                self._browser = self._playwright.chromium.launch(
+                    headless=self.headless, args=["--disable-quic"]
+                )
+            except BaseException:
+                # Don't leave a Playwright driver running that nothing owns.
+                self._playwright.stop()
+                self._playwright = None
+                raise
 
     def close(self):
         try:
@@ -253,6 +430,41 @@ class BrowserGenerator(Generator):
         finally:
             context.close()
 
+    def responds_like_ai(self) -> bool:
+        """Best effort: does the page answer a simple question the way a language
+        model would?
+
+        run_scan uses this as a gate, before any attack is sent, so a login
+        form, contact form or search box isn't sent hundreds of attack messages.
+        It can be wrong the other way: a tightly scoped support bot may refuse
+        anything off-topic, or answer in another language. That is why the
+        caller can override it.
+
+        If the first input on the page doesn't answer, the next candidate is
+        tried (up to _LIVENESS_INPUT_TRIES), because the first match is often a
+        contact form sitting above the real chat. The input that passes is the
+        one the whole scan then uses. If none passes, the exclusions are cleared
+        so an overridden scan starts from the original first choice.
+        """
+        for _ in range(_LIVENESS_INPUT_TRIES):
+            for question, answer, question_phrase in LIVENESS_CHECKS:
+                out = self._call_model(Conversation([Turn("user", Message(text=question))]))
+                reply = (out[0].text if out and out[0] else "").strip()
+                if (
+                    len(reply) <= _LIVENESS_MAX_CHARS
+                    and answer.search(reply)
+                    and question_phrase not in reply.lower()
+                    and not _LIVENESS_NOT_AN_ANSWER.search(reply)
+                ):
+                    return True
+            if self._last_input_key is None:
+                break
+            self._excluded_inputs.add(self._last_input_key)
+            if not self._another_input_exists():
+                break
+        self._excluded_inputs.clear()
+        return False
+
     # ---- garak entry point -------------------------------------------------
 
     def _call_model(self, prompt: Conversation, generations_this_call: int = 1):
@@ -263,6 +475,11 @@ class BrowserGenerator(Generator):
         if not text:
             return [None]
 
+        if self._scan_started is None:
+            self._scan_started = time.monotonic()
+        elif time.monotonic() - self._scan_started > self.max_scan_s:
+            raise ScanTimedOut(f"scan exceeded {self.max_scan_s}s")
+
         if self._calls:
             time.sleep(self.request_delay_s)
         self._calls += 1
@@ -272,6 +489,11 @@ class BrowserGenerator(Generator):
             try:
                 reply = self._converse(text)
                 return [Message(text=reply) if reply else None]
+            except PageUnavailable as e:
+                if not self._had_success:
+                    raise  # the target was never usable: say so
+                last_error = e  # one bad load mid-scan is a hiccup, not the end
+                logger.warning("browser attempt %d/%d failed: %s", attempt, self.attempts, e)
             except (_NoChatInput, PlaywrightError) as e:
                 last_error = e
                 logger.warning("browser attempt %d/%d failed: %s", attempt, self.attempts, e)
@@ -309,14 +531,25 @@ class BrowserGenerator(Generator):
     def _open_page(self):
         self._verdicts = {}
         self._tripped = None
-        context = self._browser.new_context()
+        # Service workers make requests that bypass route(); no chat page needs one.
+        context = self._browser.new_context(service_workers="block")
         try:
             context.set_default_timeout(self.action_timeout_ms)
             context.route("**/*", self._guard)
+            # WebSockets aren't seen by route(). Allowed ones (chat widgets use
+            # them) are passed through to the real server; a blocked one is left
+            # mocked, so the page believes it connected and nothing leaves.
+            context.route_web_socket("**/*", self._ws_guard)
+            context.add_init_script(_WEBRTC_OFF_JS)
             context.on("request", self._on_request)
             page = context.new_page()
-            page.goto(self.name, wait_until="domcontentloaded", timeout=self.nav_timeout_ms)
+            response = page.goto(self.target_url, wait_until="domcontentloaded", timeout=self.nav_timeout_ms)
             self._check_tripped()
+            if response is not None and response.status >= 500:
+                # A broken server. (4xx is not treated as fatal: single-page apps on
+                # static hosts are often served with a 404 status; whether there is
+                # a chat to scan is decided by what is on the page.)
+                raise PageUnavailable(f"target returned HTTP {response.status}")
         except BaseException:
             context.close()
             raise
@@ -326,11 +559,13 @@ class BrowserGenerator(Generator):
         parts = urlsplit(url)
         if parts.scheme in ("data", "blob", "about"):
             return True  # no network involved
-        if parts.scheme not in ("http", "https"):
+        # A websocket is judged as the web address it connects to.
+        scheme = {"ws": "http", "wss": "https"}.get(parts.scheme, parts.scheme)
+        if scheme not in ("http", "https"):
             return False
-        key = (parts.scheme, (parts.hostname or "").lower(), parts.port)
+        key = (scheme, (parts.hostname or "").lower(), parts.port)
         if key not in self._verdicts:
-            result = validate_target_url(url)
+            result = validate_target_url(f"{scheme}://{parts.netloc}{parts.path or '/'}")
             self._verdicts[key] = result.is_safe
             if not result.is_safe:
                 logger.warning("page tried to reach %s: %s", url, result.reason)
@@ -345,6 +580,14 @@ class BrowserGenerator(Generator):
                 route.abort("blockedbyclient")
         except PlaywrightError:
             pass  # page or context already closing
+
+    def _ws_guard(self, ws):
+        try:
+            if self._url_allowed(ws.url):
+                ws.connect_to_server()
+            # else: intentionally do nothing; see _open_page
+        except PlaywrightError:
+            pass
 
     def _on_request(self, request):
         """Watch redirect hops, which _guard never sees. Can only flag them."""
@@ -362,29 +605,52 @@ class BrowserGenerator(Generator):
 
     def _find_input(self, page):
         """Poll until a usable input shows up in any frame; (frame, locator) or None."""
-        deadline = time.monotonic() + self.input_wait_ms / 1000
+        started = time.monotonic()
+        deadline = started + self.input_wait_ms / 1000
         while True:
             self._check_tripped()
-            for selector in INPUT_SELECTORS:
-                for frame in page.frames:
-                    try:
-                        candidates = frame.locator(selector)
-                        for i in range(min(candidates.count(), 5)):
-                            field = candidates.nth(i)
-                            if self._is_usable(field):
-                                return frame, field
-                    except PlaywrightError:
-                        continue  # frame detached mid-search
+            # Demoted inputs (see _INPUT_SKIP_JS) are only accepted from half-time
+            # on, so a widget that renders late can still win over a contact form
+            # that was there from the start.
+            passes = (False, True) if time.monotonic() - started >= self.input_wait_ms / 2000 else (False,)
+            for accept_demoted in passes:
+                for selector in INPUT_SELECTORS:
+                    for frame in page.frames:
+                        try:
+                            candidates = frame.locator(selector)
+                            for i in range(min(candidates.count(), 5)):
+                                key = (selector, i, frame.url)
+                                if key in self._excluded_inputs:
+                                    continue
+                                field = candidates.nth(i)
+                                kind = self._classify(field)
+                                if kind == "ok" or (kind == "demote" and accept_demoted):
+                                    self._last_input_key = key
+                                    return frame, field
+                        except PlaywrightError:
+                            continue  # frame detached mid-search
             if time.monotonic() >= deadline:
                 return None
             time.sleep(0.5)
 
     @staticmethod
-    def _is_usable(field) -> bool:
+    def _classify(field) -> str | None:
+        """'ok', 'demote', or None (unusable or not a chat box at all)."""
         try:
-            return field.is_visible() and field.is_enabled() and field.is_editable()
+            if not (field.is_visible() and field.is_enabled() and field.is_editable()):
+                return None
+            verdict = field.evaluate(_INPUT_SKIP_JS)
         except PlaywrightError:
-            return False
+            return None
+        return None if verdict == "skip" else ("demote" if verdict == "demote" else "ok")
+
+    def _another_input_exists(self) -> bool:
+        self._ensure_browser()
+        context, page = self._open_page()
+        try:
+            return self._find_input(page) is not None
+        finally:
+            context.close()
 
     @staticmethod
     def _type(page, field, text):
@@ -407,12 +673,17 @@ class BrowserGenerator(Generator):
         field.press("Enter")
 
     def _find_submit(self, frame, field):
-        # If the input sits in a <form>, only that form's buttons are candidates:
-        # a page can have a newsletter "Submit" next to the chat box.
+        # Only buttons near the input are candidates: its <form>, or failing that
+        # the closest wrapper that contains any button. Searching the whole frame
+        # could click an unrelated "Send" or "Submit" elsewhere on the page.
         scope = frame
-        form = field.locator("xpath=ancestor::form[1]")
-        if form.count():
-            scope = form
+        in_form = field.locator("xpath=ancestor::form[1]").count() > 0
+        if in_form:
+            scope = field.locator("xpath=ancestor::form[1]")
+        else:
+            nearby = field.locator("xpath=ancestor::*[.//button][1]")
+            if nearby.count():
+                scope = nearby
 
         for selector, pattern in SUBMIT_SELECTORS:
             try:
@@ -420,6 +691,10 @@ class BrowserGenerator(Generator):
                 for i in range(min(matches.count(), 5)):
                     button = matches.nth(i)
                     if not button.is_visible():
+                        continue
+                    # The input isn't in a form, so a button that is in one belongs
+                    # to some other form (contact, newsletter, login): never click it.
+                    if not in_form and button.evaluate("b => !!b.closest('form')"):
                         continue
                     if pattern:
                         label = f"{button.inner_text()} {button.get_attribute('aria-label') or ''}"
@@ -456,7 +731,7 @@ class BrowserGenerator(Generator):
             except PlaywrightError:
                 continue  # frame navigating or detached
             for key, value in data.items():
-                merged.setdefault(key, []).append(value)
+                merged.setdefault(key, []).append(value[:_MAX_SNAPSHOT_CHARS])
         return {key: "\n".join(values) for key, values in merged.items()}
 
     @staticmethod
@@ -465,7 +740,12 @@ class BrowserGenerator(Generator):
         for key in (*REPLY_SELECTORS, _PAGE_KEY):
             lines = _new_lines(before.get(key, ""), after.get(key, ""))
             lines = _drop_echo(lines, prompt)
-            lines = [line for line in lines if not _INDICATOR.match(line)]
+            # Clock-like lines are page noise, but only in whole-page mode: inside a
+            # chat bubble "9:30 AM" can be the bot's actual answer.
+            lines = [
+                line for line in lines
+                if not _INDICATOR.match(line) and not (key == _PAGE_KEY and _CLOCK.match(line))
+            ]
             if lines:
                 return "\n".join(lines)
         return ""
@@ -475,11 +755,13 @@ class BrowserGenerator(Generator):
 
         Returns whatever has arrived by then, possibly empty. Streaming and
         typewriter effects keep the text changing, so the reply only counts as
-        done after `settle_ms` of no change.
+        done after `settle_ms` of no change (`pending_settle_ms` if it looks like
+        a "one moment, checking..." placeholder that the bot will replace).
         """
         started = time.monotonic()
         deadline = started + self.response_timeout_ms / 1000
         settle = self.settle_ms / 1000
+        pending_settle = max(settle, self.pending_settle_ms / 1000)
         reply, changed_at = "", started
         while True:
             now = time.monotonic()
@@ -488,8 +770,10 @@ class BrowserGenerator(Generator):
             current = self._extract_reply(before, after, prompt)
             if current != reply:
                 reply, changed_at = current, now
-            elif reply and now - changed_at >= settle:
-                return reply
+            elif reply:
+                needed = pending_settle if _looks_pending(reply) else settle
+                if now - changed_at >= needed:
+                    return reply
             if now >= deadline:
                 return reply
             time.sleep(self.poll_ms / 1000)

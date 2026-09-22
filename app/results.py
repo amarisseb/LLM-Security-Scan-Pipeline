@@ -7,6 +7,7 @@ survive: load_jsonl, build_stats, build_evidence, pct, CATEGORY_MAP, ORDER.
 """
 
 import importlib.util
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -29,6 +30,20 @@ def _generate_report():
     return _module
 
 
+def _clip(text: str, limit: int = 600) -> str:
+    return text if len(text) <= limit else text[:limit].rstrip() + "…"
+
+
+def _read_target_check(report_path: Path) -> bool | None:
+    """True/False if run_scan recorded whether the target answered like an AI, else None."""
+    try:
+        with open(report_path.parent / "target_check.json", encoding="utf-8") as f:
+            value = json.load(f).get("ai_confirmed")
+        return value if isinstance(value, bool) else None
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
 def category_label(probe_path: str) -> str:
     """'probes.encoding.InjectBase64' -> 'Filter evasion'."""
     gr = _generate_report()
@@ -47,6 +62,27 @@ def answered_any(report_path: Path) -> bool:
     )
 
 
+# A category where at least this share of our messages got no reply is flagged:
+# its percentage describes only the answers we did get.
+LOW_COVERAGE_UNANSWERED_SHARE = 0.5
+
+
+def _coverage(gr, eval_records) -> tuple[dict, dict]:
+    """Per category: messages sent, and how many got no reply. garak records both
+    on every eval line (total_processed, nones); each detector of a probe sees the
+    same attempts, so count each probe once."""
+    per_probe = {}
+    for record in eval_records:
+        per_probe.setdefault(record.get("probe", ""), record)
+    sent, unanswered = {}, {}
+    for probe, record in per_probe.items():
+        key = gr.category_for(probe)
+        if key:
+            sent[key] = sent.get(key, 0) + record.get("total_processed", 0)
+            unanswered[key] = unanswered.get(key, 0) + record.get("nones", 0)
+    return sent, unanswered
+
+
 def build_report(report_path: Path, scan_id: str, target_url: str) -> dict:
     """Raises ValueError if the report has no results in it."""
     gr = _generate_report()
@@ -58,9 +94,10 @@ def build_report(report_path: Path, scan_id: str, target_url: str) -> dict:
 
     stats = gr.build_stats(eval_records)
     evidence = gr.build_evidence(hit_records)
+    sent_by_cat, unanswered_by_cat = _coverage(gr, eval_records)
 
     categories = []
-    total_fails = total_evaluated = breached = 0
+    total_fails = total_evaluated = breached = total_sent = total_unanswered = 0
     for key in gr.ORDER:
         meta = gr.CATEGORY_MAP[key]
         counts = stats.get(key, {})
@@ -75,6 +112,10 @@ def build_report(report_path: Path, scan_id: str, target_url: str) -> dict:
         total_fails += fails
         total_evaluated += total
         breached += critical
+        sent = sent_by_cat.get(key, 0)
+        unanswered = unanswered_by_cat.get(key, 0)
+        total_sent += sent
+        total_unanswered += unanswered
 
         ev = evidence.get(key)
         categories.append({
@@ -85,12 +126,17 @@ def build_report(report_path: Path, scan_id: str, target_url: str) -> dict:
             "passed": passed,
             "fails": fails,
             "total": total,
+            # total counts answered attempts only. If many got no reply, the
+            # percentage below is based on a fraction of what was sent.
+            "attempts_sent": sent,
+            "attempts_unanswered": unanswered,
+            "low_coverage": sent > 0 and unanswered / sent >= LOW_COVERAGE_UNANSWERED_SHARE,
             "exposed_pct": rate,
             "critical": critical,
             "recommendation": meta["playbook_fix"] if critical else meta["playbook_ok"],
             # Same 600-character cut the HTML dashboard applies. This text came
             # from the scanned site: the frontend must render it as plain text.
-            "evidence": {"sent": ev["sent"][:600], "returned": ev["returned"][:600]} if ev else None,
+            "evidence": {"sent": _clip(ev["sent"]), "returned": _clip(ev["returned"])} if ev else None,
         })
 
     return {
@@ -103,6 +149,13 @@ def build_report(report_path: Path, scan_id: str, target_url: str) -> dict:
             "evaluated": total_evaluated,
             "categories_breached": breached,
             "categories_total": len(gr.ORDER),
+            "attempts_sent": total_sent,
+            "attempts_unanswered": total_unanswered,
+            "low_coverage": total_sent > 0
+            and total_unanswered / total_sent >= LOW_COVERAGE_UNANSWERED_SHARE,
         },
+        # False means the page didn't answer two simple questions like an AI would:
+        # a clean result may then mean "not an AI", not "secure". None = not checked.
+        "target_check": {"ai_confirmed": _read_target_check(report_path)},
         "categories": categories,
     }
