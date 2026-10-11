@@ -83,7 +83,7 @@ def _coverage(gr, eval_records) -> tuple[dict, dict]:
     return sent, unanswered
 
 
-def build_report(report_path: Path, scan_id: str, target_url: str) -> dict:
+def build_report(report_path: Path, scan_id: str, target_url: str, mode: str = "web") -> dict:
     """Raises ValueError if the report has no results in it."""
     gr = _generate_report()
     records = gr.load_jsonl(report_path)
@@ -141,6 +141,7 @@ def build_report(report_path: Path, scan_id: str, target_url: str) -> dict:
 
     return {
         "scan_id": scan_id,
+        "mode": mode,
         "target": target_url,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "overall": {

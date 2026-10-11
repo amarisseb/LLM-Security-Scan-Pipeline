@@ -15,22 +15,35 @@
   }
   *{box-sizing:border-box;}
   html,body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;}
-  .wrap{max-width:1080px;margin:0 auto;padding:40px 24px 96px;}
+  .wrap{max-width:1320px;margin:0 auto;padding:24px 24px 64px;}
   .mono{font-family:'IBM Plex Mono',monospace;}
+  .hidden{display:none !important;}
 
-  .top{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid var(--line);padding-bottom:24px;margin-bottom:40px;gap:16px;flex-wrap:wrap;}
+  /* persistent header */
+  .top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:24px;gap:16px;flex-wrap:wrap;}
   .brand{display:flex;align-items:center;gap:10px;}
   .brand-mark{width:26px;height:26px;border:2px solid var(--accent);border-radius:6px;position:relative;flex-shrink:0;}
   .brand-mark::after{content:"";position:absolute;inset:5px;border:2px solid var(--critical);border-radius:3px;}
   .brand-name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;letter-spacing:.02em;}
   .brand-sub{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-top:2px;letter-spacing:.03em;}
+  .top-right{display:flex;align-items:center;gap:18px;}
   .meta{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);text-align:right;line-height:1.8;word-break:break-all;}
   .meta b{color:var(--text);font-weight:500;}
 
-  h1{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:34px;line-height:1.15;margin:0 0 10px;letter-spacing:-.01em;}
-  .subhead{color:var(--muted);font-size:15px;max-width:600px;margin:0 0 36px;line-height:1.55;}
+  h1{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:32px;line-height:1.15;margin:0 0 10px;letter-spacing:-.01em;}
+  .subhead{color:var(--muted);font-size:14.5px;max-width:600px;margin:0 0 28px;line-height:1.55;}
 
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px;}
+  .btn{background:var(--accent);color:#0A0F1C;border:0;border-radius:9px;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:15px;padding:13px 26px;cursor:pointer;}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .btn.ghost{background:none;color:var(--text);border:1px solid var(--line);}
+  .btn.small{padding:8px 16px;font-size:13px;border-radius:7px;}
+  .error{color:var(--critical);font-size:14px;margin-top:16px;line-height:1.5;}
+  .actions{margin-top:28px;display:flex;gap:12px;flex-wrap:wrap;}
+
+  /* ---------------- start (hero + form) ---------------- */
+  .hero-wrap{max-width:640px;}
+  .hero-wrap h1{font-size:36px;}
   label.field{display:block;margin-bottom:20px;}
   .field .lbl{display:block;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
   input[type=text],input[type=email]{width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;color:var(--text);font:inherit;font-size:15px;padding:12px 14px;outline:none;}
@@ -38,79 +51,104 @@
   .hint{font-size:12.5px;color:var(--muted);margin-top:8px;line-height:1.5;}
   .chip{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent);border:1px solid var(--line);border-radius:999px;padding:3px 10px;cursor:pointer;background:none;margin-left:6px;}
   .chip:hover{border-color:var(--accent);}
+  .mode-tabs{display:flex;gap:8px;margin-bottom:22px;}
+  .mode-tab{flex:1;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;color:var(--muted);font:inherit;font-size:13.5px;font-weight:500;padding:10px 14px;cursor:pointer;text-align:center;}
+  .mode-tab.active{color:var(--text);border-color:var(--accent);background:rgba(124,156,255,.1);}
+  select{width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;color:var(--text);font:inherit;font-size:15px;padding:12px 14px;outline:none;}
+  select:focus{border-color:var(--accent);}
   .attest{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:8px 0 20px;}
   .attest p{margin:0 0 14px;font-size:13.5px;line-height:1.6;color:#C3CCE3;}
   .attest label{display:flex;gap:10px;align-items:flex-start;font-size:14px;cursor:pointer;}
   .attest input{margin-top:3px;accent-color:var(--accent);}
-  .btn{background:var(--accent);color:#0A0F1C;border:0;border-radius:9px;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:15px;padding:13px 26px;cursor:pointer;}
-  .btn:disabled{opacity:.45;cursor:not-allowed;}
-  .btn.ghost{background:none;color:var(--text);border:1px solid var(--line);}
-  .error{color:var(--critical);font-size:14px;margin-top:16px;line-height:1.5;}
 
-  /* running */
-  .run-target{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--muted);word-break:break-all;margin-bottom:22px;}
-  .run-target b{color:var(--text);font-weight:500;}
-  .bar{height:10px;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;overflow:hidden;}
-  .bar > div{height:100%;background:var(--accent);border-radius:6px;transition:width .6s ease;}
-  .bar.indeterminate > div{width:30%;animation:slide 1.4s ease-in-out infinite;}
-  @keyframes slide{0%{margin-left:-30%}100%{margin-left:100%}}
-  .run-line{display:flex;justify-content:space-between;margin:14px 0 26px;font-size:14px;gap:12px;flex-wrap:wrap;}
-  .run-line .mono{color:var(--muted);font-size:12px;}
-  .cats{display:flex;gap:10px;flex-wrap:wrap;}
-  .cat-chip{font-size:13px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);color:var(--muted);}
-  .cat-chip.active{color:var(--text);border-color:var(--accent);background:rgba(124,156,255,.1);}
-  .cat-chip.done{color:var(--safe);border-color:var(--safe-dim);}
-  .note{margin-top:26px;font-size:13px;color:var(--muted);line-height:1.6;}
+  /* ---------------- app shell: sidebar / main / aside ---------------- */
+  .shell{display:grid;grid-template-columns:240px 1fr 280px;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;align-items:stretch;}
+  .shell-sidebar{border-right:1px solid var(--line);background:var(--panel-2);padding:16px 10px;overflow-y:auto;}
+  .shell-main{padding:28px 32px;min-width:0;}
+  .shell-aside{border-left:1px solid var(--line);background:var(--panel-2);padding:22px 20px;}
 
-  /* result */
-  .summary{display:grid;grid-template-columns:200px 1fr;gap:36px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:32px;margin-bottom:28px;align-items:center;}
-  .gauge{position:relative;width:160px;height:160px;margin:0 auto;}
-  .gauge svg{transform:rotate(-90deg);}
-  .gauge-num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-  .gauge-num .n{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:38px;line-height:1;}
-  .gauge-num .l{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:.08em;margin-top:4px;text-transform:uppercase;}
-  .lanes{display:flex;flex-direction:column;gap:14px;}
-  .lane-row{display:grid;grid-template-columns:130px 1fr 52px;align-items:center;gap:14px;}
-  .lane-label{font-size:12.5px;color:var(--muted);}
-  .lane-track{height:8px;background:var(--panel-2);border-radius:4px;overflow:hidden;border:1px solid var(--line);}
-  .lane-fill{height:100%;border-radius:4px;}
-  .lane-pct{font-family:'IBM Plex Mono',monospace;font-size:12px;text-align:right;}
-  .callout{background:var(--panel);border:1px solid var(--critical);border-radius:10px;padding:14px 18px;font-size:14px;margin-bottom:28px;line-height:1.55;}
-  .callout.ok{border-color:var(--safe);}
-  .callout b{color:var(--critical);} .callout.ok b{color:var(--safe);}
-  .callout.warn{border-color:var(--warn);} .callout.warn b{color:var(--warn);}
-  .section-title{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 18px;}
+  .scan-meta{display:flex;align-items:center;gap:9px;padding:6px 8px 14px;margin-bottom:6px;border-bottom:1px solid var(--line);}
+  .scan-meta .sq{width:20px;height:20px;border-radius:5px;background:var(--accent);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:11px;color:#0A0F1C;}
+  .scan-meta .sm-text{min-width:0;}
+  .scan-meta .sm-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .scan-meta .sm-sub{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted);}
 
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin-bottom:16px;overflow:hidden;}
-  .card-head{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;cursor:pointer;gap:20px;width:100%;background:none;border:0;color:inherit;font:inherit;text-align:left;}
-  .card-head:hover{background:rgba(255,255,255,.015);}
-  .ch-left{display:flex;align-items:center;gap:16px;min-width:0;}
-  .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+  .side-label{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:12px 10px 6px;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:13.5px;color:var(--text);user-select:none;}
+  .nav-item:hover{background:rgba(255,255,255,.035);}
+  .nav-item.selected{background:rgba(124,156,255,.12);}
+  .nav-item.disabled{cursor:default;color:var(--muted);}
+  .nav-item.disabled:hover{background:none;}
+  .n-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .n-pct{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);flex-shrink:0;}
+
+  .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
   .dot.critical{background:var(--critical);box-shadow:0 0 0 4px var(--critical-dim);}
   .dot.safe{background:var(--safe);box-shadow:0 0 0 4px var(--safe-dim);}
   .dot.untested{background:var(--muted);}
-  .card-title{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:17px;}
-  .card-sub{font-size:13px;color:var(--muted);margin-top:3px;}
-  .badge{font-family:'IBM Plex Mono',monospace;font-size:12px;padding:5px 11px;border-radius:999px;white-space:nowrap;}
+  .dot.pending{background:none;border:2px solid var(--line);}
+  .dot.active{background:var(--accent);box-shadow:0 0 0 4px rgba(124,156,255,.18);animation:pulse 1.3s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+
+  .crumb{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);margin-bottom:10px;}
+  .crumb b{color:var(--text);font-weight:500;}
+  .badge{font-family:'IBM Plex Mono',monospace;font-size:12px;padding:5px 11px;border-radius:999px;white-space:nowrap;display:inline-block;}
   .badge.critical{color:var(--critical);background:var(--critical-dim);}
   .badge.safe{color:var(--safe);background:var(--safe-dim);}
   .badge.untested{color:var(--muted);border:1px solid var(--line);}
-  .card-body{display:none;border-top:1px solid var(--line);padding:22px 24px;}
-  .card.open .card-body{display:block;}
-  .desc{font-size:14px;color:#C3CCE3;line-height:1.6;margin:0 0 20px;}
-  .ev{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:20px;}
-  .ev-label,.pb-label{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
-  .ev-row{display:grid;grid-template-columns:64px 1fr;gap:12px;margin-top:10px;}
-  .ev-tag{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent);padding-top:2px;}
-  .ev-text{font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:1.55;color:#C3CCE3;white-space:pre-wrap;word-break:break-word;}
-  .ev-row.ret .ev-text{color:var(--critical);}
-  .pb{font-size:14px;line-height:1.6;}
-  .actions{margin-top:32px;display:flex;gap:12px;}
-  .hidden{display:none !important;}
+  .title-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:10px;}
+  .title-row h1{margin:0;}
+  .desc{font-size:14px;color:#C3CCE3;line-height:1.6;margin:0 0 22px;}
 
-  @media (max-width:720px){
-    h1{font-size:27px;} .summary{grid-template-columns:1fr;gap:24px;padding:24px;}
-    .lane-row{grid-template-columns:100px 1fr 46px;} .meta{text-align:left;}
+  .gauge{position:relative;width:148px;height:148px;margin:4px 0 20px;}
+  .gauge svg{transform:rotate(-90deg);}
+  .gauge-num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .gauge-num .n{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:34px;line-height:1;}
+  .gauge-num .l{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:.08em;margin-top:4px;text-transform:uppercase;text-align:center;}
+
+  .callout{background:var(--panel-2);border:1px solid var(--critical);border-radius:10px;padding:14px 18px;font-size:14px;margin-bottom:16px;line-height:1.55;}
+  .callout.ok{border-color:var(--safe);}
+  .callout.warn{border-color:var(--warn);}
+  .callout b{color:var(--critical);} .callout.ok b{color:var(--safe);} .callout.warn b{color:var(--warn);}
+  .note{margin-top:18px;font-size:13px;color:var(--muted);line-height:1.6;}
+
+  .code-panel{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:16px;}
+  .code-head{padding:8px 14px;border-bottom:1px solid var(--line);font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:rgba(255,255,255,.015);}
+  .code-panel.ret .code-head{color:var(--critical);}
+  .code-body{padding:14px 16px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:1.6;color:#C3CCE3;white-space:pre-wrap;word-break:break-word;max-height:260px;overflow:auto;}
+  .code-panel.ret .code-body{color:#F3B9B0;}
+
+  .fix-panel{background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--critical);border-radius:8px;padding:14px 16px;}
+  .fix-panel.ok{border-left-color:var(--safe);}
+  .fix-label{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+  .fix-text{font-size:14px;line-height:1.6;}
+
+  .aside-label{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;}
+  .aside-label + .aside-label{margin-top:22px;}
+  .aside-row{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line);font-size:12.5px;}
+  .aside-row:last-child{border-bottom:0;}
+  .aside-row .k{color:var(--muted);}
+  .aside-row .v{font-family:'IBM Plex Mono',monospace;font-size:12px;text-align:right;word-break:break-all;}
+
+  /* running progress bar (inside shell-main) */
+  .bar{height:10px;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-top:4px;}
+  .bar > div{height:100%;background:var(--accent);border-radius:6px;transition:width .6s ease;}
+  .bar.indeterminate > div{width:30%;animation:slide 1.4s ease-in-out infinite;}
+  @keyframes slide{0%{margin-left:-30%}100%{margin-left:100%}}
+  .run-status{margin-top:14px;font-size:14px;}
+
+  /* failed */
+  .failed-panel{max-width:620px;}
+
+  @media (max-width:900px){
+    .wrap{padding:16px 16px 56px;}
+    h1{font-size:26px;} .hero-wrap h1{font-size:28px;}
+    .shell{grid-template-columns:1fr;}
+    .shell-sidebar{border-right:0;border-bottom:1px solid var(--line);display:flex;overflow-x:auto;gap:6px;padding:12px;}
+    .shell-sidebar .scan-meta,.shell-sidebar .side-label{display:none;}
+    .nav-item{flex:0 0 auto;white-space:nowrap;}
+    .shell-aside{border-left:0;border-top:1px solid var(--line);}
+    .meta{text-align:left;}
   }
 </style>
 </head>
@@ -119,17 +157,41 @@
   <header class="top">
     <div class="brand"><div class="brand-mark"></div>
       <div><div class="brand-name">Arisec</div><div class="brand-sub">AI SECURITY SCAN</div></div></div>
-    <div class="meta" id="meta"></div>
+    <div class="top-right">
+      <div class="meta" id="meta"></div>
+      <button class="btn ghost small hidden" id="new-scan-btn" type="button">New scan</button>
+    </div>
   </header>
 
   <!-- 1. start -->
   <section id="view-start">
-    <h1>How exposed is your AI chatbot?</h1>
-    <p class="subhead">Enter a public page with a chat box. We'll run real attacks against it &mdash; prompt hijacking, jailbreaks, filter evasion, prompt leaks and unsafe content &mdash; and show you exactly what got through.</p>
-    <form class="panel" id="form" autocomplete="off">
-      <label class="field"><span class="lbl">Website or chat page URL <button type="button" class="chip hidden" id="use-demo">use the demo chatbot</button></span>
-        <input type="text" id="url" placeholder="https://your-site.com/chat" required>
-        <div class="hint">Must be a public web page with a chat box or a "generate" style input.</div></label>
+    <div class="hero-wrap">
+      <h1>How exposed is your AI chatbot?</h1>
+      <p class="subhead">Enter a public page with a chat box. We'll run real attacks against it &mdash; prompt hijacking, jailbreaks, filter evasion, prompt leaks and unsafe content &mdash; and show you exactly what got through.</p>
+    </div>
+    <form class="panel hero-wrap" id="form" autocomplete="off">
+      <div class="mode-tabs">
+        <button type="button" class="mode-tab active" id="mode-web">Scan a web page</button>
+        <button type="button" class="mode-tab" id="mode-api">Scan a model API</button>
+      </div>
+
+      <div id="fields-web">
+        <label class="field"><span class="lbl">Website or chat page URL <button type="button" class="chip hidden" id="use-demo">use the demo chatbot</button></span>
+          <input type="text" id="url" placeholder="https://your-site.com/chat">
+          <div class="hint">Must be a public web page with a chat box or a "generate" style input.</div></label>
+      </div>
+
+      <div id="fields-api" class="hidden">
+        <label class="field"><span class="lbl">Provider</span>
+          <select id="api-provider"><option>Loading&hellip;</option></select></label>
+        <label class="field"><span class="lbl">Model name</span>
+          <input type="text" id="api-model" placeholder="gpt-4o-mini">
+          <div class="hint">The exact model name your provider uses, e.g. "gpt-4o-mini" or "claude-sonnet-4-5-20250929".</div></label>
+        <label class="field"><span class="lbl">API key</span>
+          <input type="password" id="api-key" placeholder="sk-..." autocomplete="off">
+          <div class="hint">Used only for this scan, held in memory for its duration, and never stored or logged. It calls your provider's real API, using your quota and incurring real cost.</div></label>
+      </div>
+
       <label class="field"><span class="lbl">Your email</span>
         <input type="email" id="email" placeholder="you@company.com" required></label>
       <div class="attest">
@@ -141,60 +203,45 @@
     </form>
   </section>
 
-  <!-- 2. running -->
-  <section id="view-running" class="hidden">
-    <h1>Scan in progress</h1>
-    <p class="subhead">Each test sends a real attack message to the chat box, in a browser, and records how the bot answers.</p>
-    <div class="panel">
-      <div class="run-target">Target: <b id="run-target"></b></div>
-      <div class="bar indeterminate" id="bar"><div></div></div>
-      <div class="run-line"><span id="run-status">Queued&hellip;</span><span class="mono" id="run-elapsed"></span></div>
-      <div class="cats" id="cats"></div>
-      <div class="note">You can leave this page open or come back later &mdash; the link in your address bar stays valid for this scan.</div>
+  <!-- 2/3. dashboard shell: running + result share one layout -->
+  <section id="view-dash" class="hidden">
+    <div class="shell">
+      <nav class="shell-sidebar" id="sidebar"></nav>
+      <main class="shell-main" id="main"></main>
+      <aside class="shell-aside" id="aside"></aside>
     </div>
-  </section>
-
-  <!-- 3. result -->
-  <section id="view-result" class="hidden">
-    <h1>Scan results</h1>
-    <p class="subhead" id="result-sub"></p>
-    <div class="summary">
-      <div class="gauge">
-        <svg width="160" height="160" viewBox="0 0 160 160"><circle cx="80" cy="80" r="70" fill="none" stroke="#0D1526" stroke-width="14"/>
-          <circle id="gauge-arc" cx="80" cy="80" r="70" fill="none" stroke-width="14" stroke-linecap="round" stroke-dasharray="439.8" stroke-dashoffset="439.8"/></svg>
-        <div class="gauge-num"><div class="n" id="gauge-n"></div><div class="l">attacks succeeded</div></div>
-      </div>
-      <div class="lanes" id="lanes"></div>
-    </div>
-    <div class="callout warn hidden" id="aicheck"></div>
-    <div class="callout" id="callout"></div>
-    <h2 class="section-title">Findings by category</h2>
-    <div id="cards"></div>
-    <div class="actions"><button class="btn ghost" id="again-1">Scan another site</button></div>
   </section>
 
   <!-- 4. failed -->
   <section id="view-failed" class="hidden">
-    <h1>We couldn't finish this scan</h1>
-    <p class="subhead" id="failed-msg"></p>
-    <div class="actions"><button class="btn" id="again-2">Try again</button>
-      <button class="btn ghost hidden" id="override">It's a scoped assistant &mdash; scan anyway</button></div>
+    <div class="panel failed-panel">
+      <h1>We couldn't finish this scan</h1>
+      <p class="subhead" id="failed-msg"></p>
+      <div class="actions"><button class="btn" id="again-2">Try again</button>
+        <button class="btn ghost hidden" id="override">It's a scoped assistant &mdash; scan anyway</button></div>
+    </div>
   </section>
 </div>
 
 <script>
 const $ = (id) => document.getElementById(id);
-const CATEGORIES = ["Hijacking", "Jailbreak", "Filter evasion", "Prompt leak", "Unsafe content"];
+const CATEGORY_ORDER = ["promptinject", "dan", "encoding", "sysprompt_extraction", "donotanswer"];
 const SUBTITLES = {
   promptinject: "hidden instructions in user content", dan: "talking the model out of its guardrails",
   encoding: "blocked requests smuggled in as Base64, hex, ROT13...", sysprompt_extraction: "extracting the system prompt",
   donotanswer: "brand and liability risk"
 };
 let attestationVersion = null, pollTimer = null, elapsedTimer = null, startedAt = null, currentTarget = "";
+let dashMode = "running";       // "running" | "result"
+let report = null;              // last /report body, once loaded
+let selectedKey = "overview";   // "overview" | a category key
+let runProgress = null;         // last {step, of, category} from /scan/{id}
+let currentScanId = null;
 
 function show(view) {
-  for (const v of ["start", "running", "result", "failed"]) $("view-" + v).classList.toggle("hidden", v !== view);
-  $("meta").innerHTML = "";
+  for (const v of ["start", "dash", "failed"]) $("view-" + v).classList.toggle("hidden", v !== view);
+  $("new-scan-btn").classList.toggle("hidden", view !== "dash");
+  if (view === "start") $("meta").replaceChildren();
 }
 function setMeta(pairs) {
   $("meta").replaceChildren();
@@ -216,20 +263,50 @@ function el(tag, cls, text) {
   if (text !== undefined) e.textContent = text;
   return e;
 }
+function hostOf(url) { try { return new URL(url).hostname; } catch (e) { return url; } }
 
 /* ---------- start ---------- */
+const API_PROVIDER_LABELS = { openai: "OpenAI", anthropic: "Anthropic", groq: "Groq", mistral: "Mistral", cohere: "Cohere" };
+let scanMode = "web";
+
+function setMode(next) {
+  scanMode = next;
+  $("mode-web").classList.toggle("active", next === "web");
+  $("mode-api").classList.toggle("active", next === "api");
+  $("fields-web").classList.toggle("hidden", next !== "web");
+  $("fields-api").classList.toggle("hidden", next !== "api");
+  // Only the active mode's fields are required, so submitting doesn't get
+  // blocked by browser validation on the hidden half of the form.
+  $("url").required = next === "web";
+  $("api-provider").required = next === "api";
+  $("api-model").required = next === "api";
+  $("api-key").required = next === "api";
+}
+$("mode-web").onclick = () => setMode("web");
+$("mode-api").onclick = () => setMode("api");
+
 async function init() {
-  const [att, cfg] = await Promise.all([api("/attestation-text"), api("/demo-config")]);
+  const [att, cfg, providers] = await Promise.all([api("/attestation-text"), api("/demo-config"), api("/api-providers")]);
   if (att.ok) { attestationVersion = att.body.version; $("attest-text").textContent = att.body.text; }
   else $("attest-text").textContent = "Couldn't load the authorization statement. Please refresh.";
   if (cfg.ok && cfg.body.demo_target) {
     $("use-demo").classList.remove("hidden");
-    $("use-demo").onclick = () => { $("url").value = cfg.body.demo_target; if (!$("email").value) $("email").value = "demo@example.com"; };
+    $("use-demo").onclick = () => { setMode("web"); $("url").value = cfg.body.demo_target; if (!$("email").value) $("email").value = "demo@example.com"; };
   }
+  const providerSelect = $("api-provider");
+  if (providers.ok) {
+    providerSelect.replaceChildren(...providers.body.providers.map((p) => {
+      const opt = document.createElement("option"); opt.value = p; opt.textContent = API_PROVIDER_LABELS[p] || p; return opt;
+    }));
+  } else {
+    providerSelect.replaceChildren(el("option", null, "Couldn't load providers — please refresh"));
+  }
+  setMode("web");
   const id = (location.hash.match(/scan=([0-9a-f]{32})/) || [])[1];
   if (id) resume(id); else show("start");
 }
 $("agree").onchange = () => { $("go").disabled = !($("agree").checked && attestationVersion !== null); };
+$("new-scan-btn").onclick = () => reset();
 
 let lastBody = null;
 async function startScan(body) {
@@ -240,22 +317,29 @@ async function startScan(body) {
   if (!r.ok) {
     show("start");
     let msg = r.body && r.body.detail;
-    if (Array.isArray(msg)) msg = "Please check the URL and email address and try again.";
+    if (Array.isArray(msg)) msg = "Please check the form and try again.";
     $("start-error").textContent = msg || "Something went wrong. Please try again.";
     $("start-error").classList.remove("hidden");
     $("go").disabled = false;
     return;
   }
-  currentTarget = body.target_url;
+  currentTarget = body.mode === "api" ? body.api_provider + "/" + body.api_model : body.target_url;
   location.hash = "scan=" + r.body.scan_id;
   startRunning(r.body.scan_id);
 }
 $("form").onsubmit = (e) => {
   e.preventDefault();
-  startScan({
-    target_url: $("url").value.trim(), user_email: $("email").value.trim(),
-    attestation_version: attestationVersion, agreed_to_attestation: $("agree").checked,
-  });
+  const common = { user_email: $("email").value.trim(), attestation_version: attestationVersion, agreed_to_attestation: $("agree").checked };
+  if (scanMode === "web") {
+    startScan({ mode: "web", target_url: $("url").value.trim(), ...common });
+  } else {
+    const apiKey = $("api-key").value;
+    $("api-key").value = "";   // out of the DOM the moment it's read, win or lose
+    startScan({
+      mode: "api", api_provider: $("api-provider").value, api_model: $("api-model").value.trim(),
+      api_key: apiKey, ...common,
+    });
+  }
 };
 // For a tightly scoped assistant that refuses the two questions we ask before attacking.
 $("override").onclick = () => startScan({ ...lastBody, skip_ai_check: true });
@@ -263,17 +347,12 @@ $("override").onclick = () => startScan({ ...lastBody, skip_ai_check: true });
 /* ---------- running ---------- */
 function resume(id) { currentTarget = ""; startRunning(id); }   // page reload or shared link
 function startRunning(id) {
-  show("running");
-  $("run-target").textContent = currentTarget || "(resuming)";
-  setMeta([["Scan", id.slice(0, 8)]]);
-  const cats = $("cats"); cats.replaceChildren();
-  for (const c of CATEGORIES) { const chip = el("span", "cat-chip", c); chip.dataset.cat = c; cats.append(chip); }
+  currentScanId = id; dashMode = "running"; report = null; runProgress = null; selectedKey = "overview";
+  show("dash");
+  renderShell();
   startedAt = Date.now();
   clearInterval(elapsedTimer);
-  elapsedTimer = setInterval(() => {
-    const s = Math.floor((Date.now() - startedAt) / 1000);
-    $("run-elapsed").textContent = String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
-  }, 1000);
+  elapsedTimer = setInterval(renderShell, 1000);
   poll(id);
 }
 async function poll(id) {
@@ -286,19 +365,8 @@ async function poll(id) {
   const s = r.body;
   if (s.status === "complete") { clearInterval(elapsedTimer); return loadReport(id); }
   if (s.status === "failed") { clearInterval(elapsedTimer); return fail(s.error ? s.error.message : "The scan couldn't be completed.", s.error && s.error.code); }
-
-  const p = s.progress;
-  const bar = $("bar");
-  if (p) {
-    bar.classList.remove("indeterminate");
-    bar.firstElementChild.style.width = Math.round(((p.step - 1) / p.of) * 100) + "%";
-    $("run-status").textContent = "Test " + p.step + " of " + p.of + " · " + p.category;
-    document.querySelectorAll(".cat-chip").forEach((chip) => {
-      chip.classList.toggle("active", chip.dataset.cat === p.category);
-    });
-  } else {
-    $("run-status").textContent = s.status === "queued" ? "Waiting for a free scanner…" : "Starting up…";
-  }
+  runProgress = s.progress;
+  renderShell();
   pollTimer = setTimeout(() => poll(id), 2000);
 }
 
@@ -306,81 +374,201 @@ async function poll(id) {
 async function loadReport(id) {
   const r = await api("/scan/" + id + "/report");
   if (!r.ok) return fail("The scan finished but we couldn't load the results. Please try again.");
-  render(r.body);
+  report = r.body;
+  dashMode = "result";
+  const breached = report.categories.filter((c) => c.critical);
+  selectedKey = breached.length ? breached[0].key : "overview";
+  setMeta([["Target", report.target], ["Scan", report.scan_id.slice(0, 8)], ["Date", new Date(report.generated_at).toLocaleDateString()]]);
+  renderShell();
 }
-function render(rep) {
-  show("result");
-  setMeta([["Target", rep.target], ["Scan", rep.scan_id.slice(0, 8)], ["Date", new Date(rep.generated_at).toLocaleDateString()]]);
-  const o = rep.overall, critical = o.exposed_pct >= 10;
-  const color = critical ? "var(--critical)" : "var(--safe)";
-  $("result-sub").textContent = "We ran " + o.evaluated + " attack attempts against " + rep.target + ".";
-  $("gauge-n").textContent = o.exposed_pct + "%"; $("gauge-n").style.color = color;
-  const arc = $("gauge-arc"); arc.setAttribute("stroke", critical ? "#FF6B57" : "#3FDDA0");
-  requestAnimationFrame(() => arc.setAttribute("stroke-dashoffset", (439.8 * (1 - o.exposed_pct / 100)).toFixed(1)));
 
-  const lanes = $("lanes"); lanes.replaceChildren();
-  const cards = $("cards"); cards.replaceChildren();
-  for (const c of rep.categories) {
-    const state = !c.tested ? "untested" : c.critical ? "critical" : "safe";
-    const row = el("div", "lane-row");
-    row.append(el("div", "lane-label", c.name));
-    const track = el("div", "lane-track"), fill = el("div", "lane-fill");
-    fill.style.width = (c.tested ? c.exposed_pct : 0) + "%";
-    fill.style.background = state === "critical" ? "var(--critical)" : "var(--safe)";
-    track.append(fill); row.append(track);
-    row.append(el("div", "lane-pct", c.tested ? c.exposed_pct + "%" : "—"));
-    lanes.append(row);
+/* ---------- shared dashboard shell: sidebar / main / aside ---------- */
+function renderShell() {
+  renderSidebar();
+  renderMain();
+  renderAside();
+}
 
-    const card = el("div", "card" + (c.critical ? " open" : ""));
-    const head = el("button", "card-head"); head.type = "button";
-    const left = el("div", "ch-left");
-    left.append(el("span", "dot " + state));
-    const titles = el("div");
-    const note = c.attempts_unanswered > 0 ? " · " + c.attempts_unanswered + " of " + c.attempts_sent + " unanswered" : "";
-    titles.append(el("div", "card-title", c.name), el("div", "card-sub", (SUBTITLES[c.key] || "") + note));
-    left.append(titles); head.append(left);
-    head.append(el("span", "badge " + state,
-      !c.tested ? "not tested" : c.fails + " of " + c.total + " succeeded"));
-    head.onclick = () => card.classList.toggle("open");
-    const body = el("div", "card-body");
-    body.append(el("p", "desc", c.description));
-    if (c.evidence) {
-      const ev = el("div", "ev"); ev.append(el("div", "ev-label", "Evidence"));
-      const sent = el("div", "ev-row"); sent.append(el("div", "ev-tag", "Sent"), el("div", "ev-text", c.evidence.sent));
-      const ret = el("div", "ev-row ret"); ret.append(el("div", "ev-tag", "Returned"), el("div", "ev-text", c.evidence.returned));
-      ev.append(sent, ret); body.append(ev);
+function renderSidebar() {
+  const nav = $("sidebar"); nav.replaceChildren();
+  const target = dashMode === "result" ? report.target : currentTarget;
+  const meta = el("div", "scan-meta");
+  meta.append(el("div", "sq", "A"));
+  const smText = el("div", "sm-text");
+  smText.append(el("div", "sm-name", target ? hostOf(target) : "(resuming)"), el("div", "sm-sub", "SCAN · " + (currentScanId || "").slice(0, 8)));
+  meta.append(smText); nav.append(meta);
+
+  const overview = el("div", "nav-item" + (selectedKey === "overview" ? " selected" : ""));
+  const overviewDot = dashMode === "result" ? (report.overall.categories_breached ? "critical" : "safe") : "pending";
+  overview.append(el("span", "dot " + overviewDot), el("span", "n-name", "Overview"));
+  overview.onclick = () => { selectedKey = "overview"; renderShell(); };
+  nav.append(overview);
+
+  nav.append(el("div", "side-label", "Findings"));
+  for (const key of CATEGORY_ORDER) {
+    const row = el("div", "nav-item" + (selectedKey === key ? " selected" : ""));
+    if (dashMode === "running") {
+      row.classList.add("disabled");
+      const isActive = runProgress && runProgress.category && SUBTITLES.hasOwnProperty(key) && categoryName(key) === runProgress.category;
+      row.append(el("span", "dot " + (isActive ? "active" : "pending")), el("span", "n-name", categoryName(key)));
+    } else {
+      const c = report.categories.find((x) => x.key === key);
+      const state = !c || !c.tested ? "untested" : c.critical ? "critical" : "safe";
+      row.append(el("span", "dot " + state), el("span", "n-name", c ? c.name : key));
+      row.append(el("span", "n-pct", c && c.tested ? c.exposed_pct + "%" : "—"));
+      row.onclick = () => { selectedKey = key; renderShell(); };
     }
-    if (c.tested) {
-      body.append(el("div", "pb-label", c.critical ? "Playbook · immediate" : "Playbook · maintain"), el("div", "pb", c.recommendation));
-    }
-    card.append(head, body); cards.append(card);
+    nav.append(row);
   }
-  // The page didn't answer two simple questions like an AI would: a clean score may then mean "nothing to attack".
-  const ac = $("aicheck"); ac.replaceChildren();
-  const unconfirmed = !!rep.target_check && rep.target_check.ai_confirmed === false;
-  ac.classList.toggle("hidden", !unconfirmed);
+}
+function categoryName(key) {
+  const names = { promptinject: "Hijacking", dan: "Jailbreak", encoding: "Filter evasion", sysprompt_extraction: "Prompt leak", donotanswer: "Unsafe content" };
+  return names[key] || key;
+}
+
+function renderMain() {
+  const main = $("main"); main.replaceChildren();
+  if (dashMode === "running") return renderRunningMain(main);
+  if (selectedKey === "overview") return renderOverviewMain(main);
+  return renderFindingMain(main);
+}
+
+function renderRunningMain(main) {
+  main.append(el("div", "crumb", "Scan / Running"));
+  main.append(el("h1", null, "Scanning in progress"));
+  main.append(el("p", "subhead", "Each test sends a real attack message to the chat box, in a browser, and records how the bot answers."));
+  const bar = el("div", "bar" + (runProgress ? "" : " indeterminate")); bar.append(el("div"));
+  if (runProgress) bar.firstElementChild.style.width = Math.round(((runProgress.step - 1) / runProgress.of) * 100) + "%";
+  main.append(bar);
+  const status = el("div", "run-status", runProgress ? "Test " + runProgress.step + " of " + runProgress.of + " · " + runProgress.category : "Waiting for a free scanner…");
+  main.append(status);
+  main.append(el("div", "note", "You can leave this page open or come back later — the link in your address bar stays valid for this scan."));
+}
+
+function renderOverviewMain(main) {
+  const o = report.overall, critical = o.exposed_pct >= 10;
+  main.append(el("div", "crumb", "Scan / Overview"));
+  main.append(el("h1", null, "Scan results"));
+  main.append(el("p", "subhead", "We ran " + o.evaluated + " attack attempts against " + report.target + "."));
+
+  const gauge = el("div", "gauge");
+  const circumference = 439.8;
+  gauge.innerHTML = '<svg width="148" height="148" viewBox="0 0 160 160"><circle cx="80" cy="80" r="70" fill="none" stroke="#0D1526" stroke-width="14"/>' +
+    '<circle cx="80" cy="80" r="70" fill="none" stroke-width="14" stroke-linecap="round" stroke="' + (critical ? "#FF6B57" : "#3FDDA0") +
+    '" stroke-dasharray="' + circumference + '" stroke-dashoffset="' + circumference + '" id="gauge-arc"/></svg>';
+  const num = el("div", "gauge-num");
+  num.append(el("div", "n", o.exposed_pct + "%"));
+  num.firstChild.style.color = critical ? "var(--critical)" : "var(--safe)";
+  num.append(el("div", "l", "attacks succeeded"));
+  gauge.append(num);
+  main.append(gauge);
+  requestAnimationFrame(() => gauge.querySelector("#gauge-arc").setAttribute("stroke-dashoffset", (circumference * (1 - o.exposed_pct / 100)).toFixed(1)));
+
+  const unconfirmed = !!report.target_check && report.target_check.ai_confirmed === false;
   if (unconfirmed) {
-    ac.append(el("b", "", "We couldn't confirm an AI model is behind this page. "),
-      "It didn't answer two simple questions the way an AI would. If it isn't an AI, a low score below doesn't mean it's secure — there was nothing to attack. If it's a tightly scoped assistant, the results are still valid.");
+    const warnBox = el("div", "callout warn");
+    warnBox.append(el("b", "", "We couldn't confirm an AI model is behind this page. "),
+      "It didn't answer two simple questions the way an AI would. If it isn't an AI, a low score doesn't mean it's secure — there was nothing to attack. If it's a tightly scoped assistant, the results are still valid.");
+    main.append(warnBox);
   }
   if (o.low_coverage) {
-    ac.classList.remove("hidden");
-    ac.append(el("b", "", (unconfirmed ? " " : "") + "Many of our messages got no reply. "),
+    const covBox = el("div", "callout warn");
+    covBox.append(el("b", "", "Many of our messages got no reply. "),
       o.attempts_unanswered + " of " + o.attempts_sent + " went unanswered, so the percentages describe only the answers we did get.");
+    main.append(covBox);
   }
-  const callout = $("callout");
-  callout.className = "callout" + (o.categories_breached ? "" : " ok");
-  callout.replaceChildren();
+  const callout = el("div", "callout" + (o.categories_breached ? "" : " ok"));
   if (o.categories_breached) {
-    const b = el("b", "", o.categories_breached + " of " + o.categories_total + " categories exposed. ");
-    callout.append(b, "Start with the red categories below — each has the exact attack that worked and how to fix it.");
+    callout.append(el("b", "", o.categories_breached + " of " + o.categories_total + " categories exposed. "),
+      "Select a finding on the left for the exact attack that worked and how to fix it.");
   } else {
     callout.append(el("b", "", "No category crossed the exposure threshold. "), "Re-test whenever your prompt or model changes.");
   }
+  main.append(callout);
+}
+
+function renderFindingMain(main) {
+  const c = report.categories.find((x) => x.key === selectedKey);
+  const state = !c.tested ? "untested" : c.critical ? "critical" : "safe";
+  main.append(el("div", "crumb", "Findings / " + c.name));
+  const titleRow = el("div", "title-row");
+  titleRow.append(el("h1", null, c.name));
+  titleRow.append(el("span", "badge " + state, !c.tested ? "not tested" : c.fails + " of " + c.total + " succeeded"));
+  main.append(titleRow);
+  main.append(el("p", "desc", c.description));
+
+  if (c.evidence) {
+    const sent = el("div", "code-panel");
+    sent.append(el("div", "code-head", "Sent to target"), el("div", "code-body", c.evidence.sent));
+    main.append(sent);
+    const ret = el("div", "code-panel ret");
+    ret.append(el("div", "code-head", "Target replied"), el("div", "code-body", c.evidence.returned));
+    main.append(ret);
+  }
+  if (c.attempts_unanswered > 0) {
+    main.append(el("div", "note", c.attempts_unanswered + " of " + c.attempts_sent + " messages in this category got no reply."));
+  }
+  if (c.tested) {
+    const fix = el("div", "fix-panel" + (c.critical ? "" : " ok"));
+    fix.append(el("div", "fix-label", c.critical ? "Fix · immediate" : "Fix · maintain"), el("div", "fix-text", c.recommendation));
+    main.append(fix);
+  }
+}
+
+function renderAside() {
+  const aside = $("aside"); aside.replaceChildren();
+  if (dashMode === "running") return renderRunningAside(aside);
+  if (selectedKey === "overview") return renderOverviewAside(aside);
+  return renderFindingAside(aside);
+}
+function row(k, v) { const r = el("div", "aside-row"); r.append(el("span", "k", k), el("span", "v", v)); return r; }
+
+function renderRunningAside(aside) {
+  const s = Math.floor((Date.now() - startedAt) / 1000);
+  const elapsed = String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+  aside.append(el("div", "aside-label", "Properties"));
+  aside.append(row("Status", "Running"), row("Elapsed", elapsed));
+  aside.append(el("div", "aside-label", "Origin"));
+  aside.append(row("Target", currentTarget || "(resuming)"), row("Scan ID", (currentScanId || "").slice(0, 12)));
+}
+function renderOverviewAside(aside) {
+  const o = report.overall;
+  aside.append(el("div", "aside-label", "Properties"));
+  aside.append(
+    row("Status", o.categories_breached ? "Critical" : "Safe"),
+    row("Exposed", o.exposed_pct + "%"),
+    row("Breached", o.categories_breached + " of " + o.categories_total),
+  );
+  aside.append(el("div", "aside-label", "Origin"));
+  aside.append(
+    row("Mode", report.mode === "api" ? "API" : "Web"),
+    row("Target", report.target),
+    row("Scan ID", report.scan_id.slice(0, 12)),
+    row("Generated", new Date(report.generated_at).toLocaleString()),
+    row("Attempts", o.attempts_sent + " sent, " + o.attempts_unanswered + " unanswered"),
+  );
+}
+function renderFindingAside(aside) {
+  const c = report.categories.find((x) => x.key === selectedKey);
+  const state = !c.tested ? "Not tested" : c.critical ? "Critical" : "Safe";
+  aside.append(el("div", "aside-label", "Properties"));
+  aside.append(
+    row("Status", state),
+    row("Exposed", c.tested ? c.exposed_pct + "%" : "—"),
+    row("Attempts", c.attempts_sent + " sent, " + c.attempts_unanswered + " unanswered"),
+  );
+  aside.append(el("div", "aside-label", "Origin"));
+  aside.append(
+    row("Target", report.target),
+    row("Scan ID", report.scan_id.slice(0, 12)),
+    row("Category", c.key),
+    row("Generated", new Date(report.generated_at).toLocaleString()),
+  );
 }
 
 /* ---------- failed / reset ---------- */
 function fail(message, code) {
+  clearInterval(elapsedTimer);
   show("failed"); $("failed-msg").textContent = message;
   // Only offered when the scan was stopped by the "does it answer like an AI" gate, and we still have the request.
   $("override").classList.toggle("hidden", !(code === "ai_not_confirmed" && lastBody));
@@ -388,10 +576,12 @@ function fail(message, code) {
 function reset() {
   clearTimeout(pollTimer); clearInterval(elapsedTimer);
   history.replaceState(null, "", location.pathname);
+  report = null; runProgress = null; currentScanId = null; selectedKey = "overview";
+  $("api-key").value = "";
   $("go").disabled = !$("agree").checked;
   show("start");
 }
-$("again-1").onclick = reset; $("again-2").onclick = reset;
+$("again-2").onclick = reset;
 
 init();
 </script>

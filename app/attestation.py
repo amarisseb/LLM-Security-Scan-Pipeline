@@ -32,6 +32,22 @@ ATTESTATION_TEXTS: dict[int, str] = {
         "responsibility for scanning this target, and I will not use this service to "
         "test systems I am not authorized to test."
     ),
+    # Added when direct API-key scanning shipped: version 1 only covers "a URL
+    # I'm authorized to test," which doesn't fit submitting your own API
+    # credential. This version covers both without changing what version-1
+    # scans are shown.
+    2: (
+        "I confirm that I am authorized to direct this scan at the target I am "
+        "submitting: either I own the website or system at the URL, or I own or am "
+        "authorized to use the API credential I am providing. I understand that this "
+        "scan sends automated adversarial messages to the target (including "
+        "prompt-injection, jailbreak and data-extraction attempts) and may generate "
+        "unusual or unsafe responses. For a scan run against an API credential, I "
+        "understand this will consume that account's quota, may incur real cost, and "
+        "that I am responsible for complying with the provider's own usage policies. "
+        "I accept responsibility for this scan, and I will not use this service to "
+        "test systems or credentials I am not authorized to use."
+    ),
 }
 
 CURRENT_ATTESTATION_VERSION = max(ATTESTATION_TEXTS)
@@ -56,9 +72,13 @@ def log_attestation(
     target_url: str,
     version: int = CURRENT_ATTESTATION_VERSION,
     skip_ai_check: bool = False,
+    mode: str = "web",
     log_path: str | os.PathLike | None = None,
 ) -> dict:
     """Append one attestation record and return it.
+
+    `target_url` is the human-readable target descriptor: the real URL for a
+    web scan, or "provider/model" for an API scan -- NEVER the API key itself.
 
     Raises if the record can't be written durably. Callers must treat that as
     "do not start the scan": no scan without a record that it was authorized.
@@ -68,11 +88,13 @@ def log_attestation(
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "ip": ip,
         "user_email": user_email,
+        "mode": mode,
         "target_url": target_url,
         "attestation_version": version,
         "attestation_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
         # Overriding the "does it answer like an AI" gate is a decision the user
-        # made about their target, so it belongs on the record.
+        # made about their target, so it belongs on the record. Not meaningful
+        # for an API scan (there's no such gate), always False there.
         "skip_ai_check": skip_ai_check,
     }
 

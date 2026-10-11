@@ -43,13 +43,16 @@ class ScanStore:
             return None
         return self.root / scan_id
 
-    def create(self, scan_id: str, target_url: str) -> None:
+    def create(self, scan_id: str, target_url: str, mode: str = "web") -> None:
+        """`target_url` is a human-readable target descriptor: the real URL for
+        a web scan, or "provider/model" for an API scan -- never a credential."""
         directory = self.scan_dir(scan_id)
         with self._lock:
             directory.mkdir(parents=True, exist_ok=True)
             self._write(directory, {
                 "scan_id": scan_id,
                 "status": QUEUED,
+                "mode": mode,
                 "target_url": target_url,
                 "created_at": now_iso(),
                 "started_at": None,

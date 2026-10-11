@@ -3,3 +3,7 @@ uvicorn[standard]
 pydantic[email]
 garak
 playwright
+# Used by run_scan.run_api_scan for direct API-key scanning (garak's LiteLLM
+# generator). garak treats this as an optional extra; it's a hard dependency
+# here since that scan mode is a built-in feature, not opt-in.
+litellm
