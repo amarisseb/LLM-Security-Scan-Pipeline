@@ -1,0 +1,2 @@
+# Optional isolated benchmark environment. Never add this to the web requirements.
+agentdojo==0.1.35

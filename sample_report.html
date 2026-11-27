@@ -59,6 +59,8 @@
   .section-title{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin:0 0 18px;padding-top:8px;}
 
   /* probe cards */
+  .start-here{background:var(--panel);border:1px solid var(--critical);border-radius:10px;padding:14px 18px;font-size:13.5px;color:var(--text);margin-bottom:28px;}
+  .start-here b{color:var(--critical);}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin-bottom:18px;overflow:hidden;}
   .card-head{display:flex;align-items:center;justify-content:space-between;padding:22px 26px;cursor:pointer;gap:20px;}
   .card-head:hover{background:rgba(255,255,255,0.015);}
@@ -110,19 +112,19 @@
     <div class="brand">
       <div class="brand-mark"></div>
       <div>
-        <div class="brand-name">SCAN REPORT</div>
+        <div class="brand-name">ARISEC</div>
         <div class="brand-sub">AI EXPOSURE REPORT</div>
       </div>
     </div>
     <div class="meta">
-      TARGET: <b>gpt-4o-mini · chat wrapper</b><br>
-      SCAN DATE: <b>11 JUL 2026</b><br>
-      RUN ID: <b>a02fe12a</b>
+      TARGET: <b>Example chat assistant</b><br>
+      SCAN DATE: <b>ILLUSTRATIVE</b><br>
+      RUN ID: <b>SAMPLE</b>
     </div>
   </div>
 
-  <h1>Your AI feature has five ways in.</h1>
-  <p class="subhead">We tested your deployed model against five categories of real-world attack. Two held. Three didn't. Here's exactly what broke, and what to do about it.</p>
+  <h1>Sample AI security report</h1>
+  <p class="subhead">This interactive example uses fictional results. Open a finding to see an example response and suggested next steps.</p>
 
   <div class="summary">
     <div class="gauge-wrap">
@@ -134,10 +136,10 @@
         </svg>
         <div class="gauge-num">
           <div class="n">66%</div>
-          <div class="l">exposed</div>
+          <div class="l">sample score</div>
         </div>
       </div>
-      <div class="gauge-caption">3 of 5 attack categories<br>breached your system</div>
+      <div class="gauge-caption">3 of 5 example categories<br>flagged for review</div>
     </div>
 
     <div class="lanes">
@@ -169,6 +171,8 @@
     </div>
   </div>
 
+
+  <div class="start-here">Start here: fix <b>Prompt leak</b> and <b>Hijacking</b> first, they're your highest-risk categories.</div>
   <div class="section-title">Findings</div>
 
   <!-- CARD 1 -->
@@ -178,7 +182,7 @@
         <div class="status-dot dot-critical"></div>
         <div class="ch-titles">
           <div class="ch-name">Hijacking</div>
-          <div class="ch-probe">promptinject · task/data confusion</div>
+          <div class="ch-probe">promptinject · hidden instructions in user content</div>
         </div>
       </div>
       <div class="ch-right">
@@ -252,7 +256,7 @@
         <div class="status-dot dot-safe"></div>
         <div class="ch-titles">
           <div class="ch-name">Filter evasion</div>
-          <div class="ch-probe">encoding · obfuscated instruction bypass</div>
+          <div class="ch-probe">encoding · disguised requests slip past filters</div>
         </div>
       </div>
       <div class="ch-right">
@@ -289,7 +293,7 @@
         <div class="status-dot dot-critical"></div>
         <div class="ch-titles">
           <div class="ch-name">Prompt leak</div>
-          <div class="ch-probe">sysprompt_extraction · instruction disclosure</div>
+          <div class="ch-probe">sysprompt_extraction · your internal instructions get exposed</div>
         </div>
       </div>
       <div class="ch-right">
@@ -356,9 +360,9 @@
     </div>
   </div>
 
-  <footer>
-    <div>AI SECURITY SCANNING</div>
-    <div>SAMPLE REPORT · ILLUSTRATIVE DATA</div>
+    <footer>
+    <div>ARISEC &middot; AI SECURITY SCANNING</div>
+    <div>Questions about this report? Reply to the email this came with.</div>
   </footer>
 
 </div>

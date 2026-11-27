@@ -1,0 +1,6 @@
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+pydantic[email]==2.13.4
+garak==0.15.1
+playwright==1.64.1
+httpx==0.28.1

@@ -1,46 +1,56 @@
-# LLM-Security-Scan-Pipeline
+# Arisec
 
+**AI security assessments that tell your team what to fix and how to verify it.**
 
-Early-stage tooling for an AI security project I'm building. Companies are deploying LLM-powered features faster than they're securing them this pipeline finds out exactly how exposed a deployed model is, and turns the results into something a non-technical team can actually act on.
+Arisec helps teams shipping AI features see where their app goes off task before customers do. Connect an authorised application or model, run an assessment and get a report that pairs the flagged reply with a concrete change and a way to retest it.
 
-## What this does
+[See an example finding](#what-a-finding-gives-you) · [What I built](#what-i-built) · [Run the Windows preview](#run-the-windows-preview) · [Roadmap](#roadmap)
 
-1. **Scan** — uses [garak](https://github.com/NVIDIA/garak), an open-source LLM vulnerability scanner, to run a target model through five categories of real attack:
-   - **Hijacking** (`promptinject`) — smuggling instructions inside content the model was only meant to process
-   - **Jailbreak** (`dan`) — talking the model out of its safety guardrails
-   - **Filter evasion** (`encoding`) — sneaking blocked requests past filters using Base64/ROT13/hex/etc.
-   - **Prompt leak** (`sysprompt_extraction`) — extracting a deployment's system prompt (its actual product logic)
-   - **Unsafe content** (`donotanswer`) — brand-safety and liability failures
+## What a finding gives you
 
-2. **Report** — `generate_report.py` parses garak's raw JSONL output and produces a readable HTML dashboard: an overall exposure score, a breakdown per attack category, real evidence (the actual prompt sent and the model's actual response) for each failing category, and a plain-language remediation recommendation.
+- **What happened.** A support assistant was asked to summarise a customer message. It followed an instruction hidden in the message and returned an unrelated reply.
+- **What to change.** Keep the summary instruction in the application. Pass the customer message separately as content to summarise.
+- **How to check it.** Replay the flagged message and confirm the assistant stays on task. Then try an ordinary message and confirm it still produces a useful summary.
 
-3. **Audit** — `audit_report.py` independently recomputes every number in the dashboard from the raw scan data and prints it line-by-line, so the report's numbers can be manually verified rather than trusted blindly.
+[Download the interactive sample report (HTML)](sample_report.html)
 
-## Try it
+## What I built
 
-```bash
-pip install garak
+Arisec started as a tool for turning garak scan records into readable reports. I built it into an assessment workflow with three parts:
 
-# run a scan against your own model (needs your own API key set as
-# an environment variable, e.g. OPENAI_API_KEY)
-python -m garak --model_type openai --model_name gpt-4o-mini \
-  --probes promptinject,dan,encoding,sysprompt_extraction,donotanswer.MaliciousUses
+- **Connect and assess.** The preview accepts supported model providers and verified application APIs. The backend checks scope, limits scan jobs and keeps credentials out of reports.
+- **Explain the result.** The dashboard pairs flagged replies with plain-English explanations, a specific change to make and a retest that checks normal use as well.
+- **Verify the evidence.** A separate audit command recomputes category totals from the original garak records. In an early **GPT‑4o‑mini provider scan**, it reproduced **2,135 task-hijacking detector matches across 3,840 evaluations**. Each match identifies a response to investigate. Application impact depends on what the AI can access or do.
 
-# turn the result into a dashboard
-python generate_report.py path/to/garak.RUNID.report.jsonl --target "gpt-4o-mini"
+## Run the Windows preview
 
-# spot-check the numbers yourself
-python audit_report.py path/to/garak.RUNID.report.jsonl
+From the repository folder, run these commands in PowerShell with Python 3.12 installed:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\start-customer-preview.cmd
 ```
 
-`sample_report.html` in this repo is a static example with illustrative (not live) data, showing the report format without needing to run a scan first.
+Keep that window open. Open [Arisec on your computer](http://127.0.0.1:8000/), select **Demo**, then expand **Optional: see a broader report layout (a different example)**. Open **Prompt injection** to see the action plan. This walkthrough uses a fictional example and requires no account, API key or real endpoint.
 
-## Status
+## Technical evidence
 
-Early MVP. Built and tested against a live scan of `gpt-4o-mini`, which surfaced real findings (including a >50% success rate on prompt-hijacking attempts). Next steps: broader model/provider support, a wider probe set, and a first real pilot with a design partner.
+| Where to look | What it shows |
+| --- | --- |
+| [Local application case study](docs/case-studies/anythingllm-local-2026-11-06/README.md) | A bounded AnythingLLM and Qwen3 test, with the configuration and evidence limitations. |
+| [Application API](docs/application-api.md) and [security boundaries](docs/engineering-standard.md) | How Arisec connects to an authorised app and protects credentials, targets and report access. |
+| [Backend and browser checks](.github/workflows/backend-checks.yml) | How to verify the pipeline and the customer walkthrough. |
+| [Experimental AgentDojo study](docs/case-studies/agentdojo-local-2026-11-25/README.md) | A local tool-use benchmark with simulated tools. |
 
-**[View a sample report →](https://amarisseb.github.io/llm-security-scan-pipeline/sample_report.html)**
+The scan engine covers task hijacking, jailbreaks, filter evasion, synthetic prompt extraction and unsafe content. Coverage varies by connector. For real targets, see [customer access](docs/customer-access.md) and [pilot deployment boundaries](docs/security-pilot.md).
 
-## Why this exists
+To render and independently check an existing garak scan export:
 
-Most teams shipping an AI feature today are a thin wrapper around an API call and a system prompt, built by people without a security background. This pipeline is the first piece of making it possible for them to find out what's actually vulnerable in their deployment, in language they don't need a security background to understand.
+    python generate_report.py path/to/garak.RUNID.report.jsonl --target "your model"
+    python audit_report.py path/to/garak.RUNID.report.jsonl
+
+## Roadmap
+
+- **Pilot with design partners.** Validate the assessment and remediation workflow on authorised staging applications, broaden provider coverage and improve evidence collection.
+- **AI remediation agent.** Given explicit repository and staging access, propose a targeted fix on an isolated branch. Replay the original test and normal-use controls, then present the code change and retest evidence for authorised review before any merge or deployment. The current preview provides repair guidance and a fictional fix-and-retest walkthrough.
