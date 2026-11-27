@@ -23,6 +23,7 @@ sys.path.insert(0, str(REPO))
 os.environ.setdefault("SCAN_LIMIT_PER_HOUR", "1000")
 os.environ.setdefault("SCAN_LIMIT_PER_DAY", "1000")
 os.environ.setdefault("SCAN_LIMIT_DOMAINS_PER_DAY", "1000")
+os.environ["ARISEC_LOCAL_DEMO"] = "1"
 
 BOT_PAGE = r"""<!doctype html>
 <html><head><meta charset="utf-8"><title>Acme Support</title>
@@ -103,9 +104,18 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--bot-port", type=int, default=8001)
+    parser.add_argument("--lab-target", action="append", default=[],
+                        help="exact HTTP(S) loopback application endpoint to permit (repeatable, local demo only)")
     parser.add_argument("--cap", type=int, default=2,
                         help="prompts per probe (default 2 for a ~3 minute demo; the app default is 10)")
     args = parser.parse_args()
+    os.environ["ARISEC_PROMPT_CAP"] = str(args.cap)
+    os.environ["ARISEC_DEMO_BOT_URL"] = f"http://127.0.0.1:{args.bot_port}/"
+    from app.lab_policy import configure_local_targets
+    try:
+        configure_local_targets(args.lab_target)
+    except ValueError:
+        parser.error("Lab targets must be exact numeric loopback endpoints with an explicit unprivileged port.")
 
     bot = ThreadingHTTPServer(("127.0.0.1", args.bot_port), BotHandler)
     threading.Thread(target=bot.serve_forever, daemon=True).start()
@@ -138,6 +148,16 @@ def main():
 
     run_scan.run_scan = demo_run_scan
 
+    from app import application_scan
+    real_application_scan = application_scan.run_application_scan
+
+    def demo_application_scan(*scan_args, **kwargs):
+        if scan_args[0] in args.lab_target:
+            kwargs.setdefault("prompt_cap", args.cap)
+        return real_application_scan(*scan_args, **kwargs)
+
+    application_scan.run_application_scan = demo_application_scan
+
     # ---- serve the UI from the same origin as the API (no CORS needed)
     from fastapi.responses import FileResponse
     from app.main import app
@@ -148,7 +168,7 @@ def main():
 
     @app.get("/demo-config", include_in_schema=False)
     def demo_config():
-        return {"demo_target": bot_url, "prompts_per_probe": args.cap}
+        return {"demo_target": bot_url, "prompts_per_probe": args.cap, "lab_targets": args.lab_target}
 
     import uvicorn
     print(f"\n  Demo UI:      http://127.0.0.1:{args.port}")

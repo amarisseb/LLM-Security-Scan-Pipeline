@@ -9,6 +9,7 @@ bits, and every lookup validates its shape before it becomes a path.
 """
 
 import json
+import heapq
 import os
 import re
 import logging
@@ -17,6 +18,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import urlsplit
 
 QUEUED, RUNNING, COMPLETE, FAILED = "queued", "running", "complete", "failed"
 
@@ -43,7 +45,9 @@ class ScanStore:
             return None
         return self.root / scan_id
 
-    def create(self, scan_id: str, target_url: str, mode: str = "web") -> None:
+    def create(self, scan_id: str, target_url: str, mode: str = "web", *,
+               component_name: str = "AI feature", component_type: str = "other",
+               owner_id: str | None = None, scenario_sector: str = 'general') -> None:
         """`target_url` is a human-readable target descriptor: the real URL for
         a web scan, or "provider/model" for an API scan -- never a credential."""
         directory = self.scan_dir(scan_id)
@@ -51,8 +55,12 @@ class ScanStore:
             directory.mkdir(parents=True, exist_ok=True)
             self._write(directory, {
                 "scan_id": scan_id,
+                "owner_id": owner_id,
+                "scenario_sector": scenario_sector,
                 "status": QUEUED,
                 "mode": mode,
+                "component_name": component_name,
+                "component_type": component_type,
                 "target_url": target_url,
                 "created_at": now_iso(),
                 "started_at": None,
@@ -83,6 +91,64 @@ class ScanStore:
         if not status or status["status"] != COMPLETE or not status.get("report_file"):
             return None
         return self.scan_dir(scan_id) / status["report_file"]
+
+    def history(self, owner_id: str) -> list[dict]:
+        """Newest 20 owner summaries; never read reports or return raw records.
+
+        Pilot limitation: without an index, each request reads each status file
+        (size bounded by _read). Directory iteration and the top-20 heap avoid
+        materialising all records, but I/O remains linear in retained scans.
+        A larger deployment needs an indexed owner/creation-time store.
+        """
+        if not isinstance(owner_id, str) or not owner_id or not self.root.is_dir():
+            return []
+        newest = []
+        with self._lock, os.scandir(self.root) as children:
+            for child in children:
+                if not _ID_RE.fullmatch(child.name) or not child.is_dir(follow_symlinks=False):
+                    continue
+                directory = Path(child.path)
+                if (directory / "status.json").is_symlink():
+                    continue
+                record = self._read(directory)
+                if not record or record.get("owner_id") != owner_id:
+                    continue
+                if record["scan_id"] != child.name or record["status"] not in (QUEUED, RUNNING, COMPLETE, FAILED):
+                    continue
+                try:
+                    created = self._created(record)
+                except (ValueError, TypeError, OverflowError):
+                    continue
+                summary = {"scan_id": child.name, "status": record["status"],
+                           "target": self._target_display(record), "created_at": record["created_at"]}
+                item = (created, child.name, summary)
+                if len(newest) < 20:
+                    heapq.heappush(newest, item)
+                elif item[:2] > newest[0][:2]:
+                    heapq.heapreplace(newest, item)
+        return [item[2] for item in sorted(newest, reverse=True)]
+
+    @staticmethod
+    def _target_display(record: dict) -> str:
+        if record.get("is_demo"):
+            return "Built-in demo assistant (scripted responses)"
+        target = record.get("target_url")
+        if not isinstance(target, str) or len(target) > 2048:
+            return "AI feature"
+        if record.get("mode") == "api":
+            return target if re.fullmatch(r"[A-Za-z0-9_.-]{1,80}/[A-Za-z0-9_.:/-]{1,160}", target) else "AI feature"
+        try:
+            parts = urlsplit(target)
+            if parts.scheme not in ("https", "http") or not parts.hostname:
+                return "AI feature"
+            host = parts.hostname
+            if any(ord(c) < 33 for c in host) or "\\" in host:
+                return "AI feature"
+            host = f"[{host}]" if ":" in host else host
+            port = f":{parts.port}" if parts.port else ""
+            return f"{parts.scheme}://{host}{port}"
+        except ValueError:
+            return "AI feature"
 
     def recover_interrupted(self) -> int:
         """After a restart, scans that were queued or running never finished and

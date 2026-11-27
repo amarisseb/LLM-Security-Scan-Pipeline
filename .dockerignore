@@ -1,0 +1,25 @@
+# Deny the entire context, then allow only runtime source and build inputs.
+**
+!app/
+!app/**
+!demo/
+!demo/index.html
+!demo/scenarios.json
+!generate_report.py
+!audit_report.py
+!requirements.txt
+!tools/
+!tools/serve_production.py
+!tools/manage_consultations.py
+!deploy/
+!deploy/Dockerfile
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/.env
+**/*.pem
+**/*.key
+**/*.sqlite*
+**/.git/
+**/.venv/
+**/.arisec-private/

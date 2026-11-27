@@ -229,3 +229,5 @@ secrets.*
 
 # Project-specific: attestation log holds user emails and IPs -- never commit
 attestation_log/
+.arisec-private/
+deploy/production.env

@@ -16,6 +16,9 @@ machine that runs scans.
 
 import ipaddress
 import socket
+import queue
+import threading
+import time
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
@@ -35,6 +38,38 @@ BLOCKED_HOSTNAMES = {
 BLOCKED_PORTS = {22, 23, 25, 445, 3306, 5432, 6379, 9200, 11211, 27017}
 
 _DEFAULT_PORTS = {"http": 80, "https": 443}
+DNS_TIMEOUT_SECONDS = 5
+_DNS_SLOTS = threading.BoundedSemaphore(4)
+
+
+def _resolve_host(hostname, port):
+    """Bound caller wait and the number of outstanding OS resolver threads."""
+    deadline = time.monotonic() + DNS_TIMEOUT_SECONDS
+    slots = _DNS_SLOTS
+    if not slots.acquire(timeout=DNS_TIMEOUT_SECONDS):
+        raise socket.gaierror("resolver busy")
+    result = queue.Queue(maxsize=1)
+
+    def resolve():
+        try:
+            result.put((socket.getaddrinfo(hostname, port, proto=socket.IPPROTO_TCP), None))
+        except Exception:
+            result.put((None, True))
+        finally:
+            slots.release()
+
+    try:
+        threading.Thread(target=resolve, daemon=True).start()
+    except BaseException:
+        slots.release()
+        raise
+    try:
+        addresses, error = result.get(timeout=max(0.001, deadline-time.monotonic()))
+    except queue.Empty:
+        raise socket.gaierror("resolver timed out") from None
+    if error:
+        raise socket.gaierror("resolver failed")
+    return addresses
 
 _NAT64_PREFIX = ipaddress.ip_network("64:ff9b::/96")
 
@@ -138,9 +173,7 @@ def validate_target_url(url: str) -> UrlSafetyResult:
     # That way exotic literals (2130706433, 0x7f.1, 017700000001) are judged by
     # the address they actually turn into, which is what the browser will connect to.
     try:
-        infos = socket.getaddrinfo(
-            hostname, effective_port, proto=socket.IPPROTO_TCP
-        )
+        infos = _resolve_host(hostname, effective_port)
     except (socket.gaierror, UnicodeError):
         return _unsafe(f"hostname {hostname} did not resolve")
     if not infos:

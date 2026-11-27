@@ -13,7 +13,7 @@ from datetime import datetime
 CATEGORY_MAP = {
     "promptinject": {
         "name": "Hijacking",
-        "subtitle": "promptinject &middot; task/data confusion",
+        "subtitle": "promptinject &middot; hidden instructions in user content",
         "desc": "A user hid an instruction inside text your AI was meant to process, not obey. When this succeeds, the model follows the hidden instruction instead of the task it was given.",
         "playbook_fix": "Separate user-supplied content from instructions using explicit delimiters, and add a system-prompt rule that content inside those delimiters is data only and can never issue new instructions. Re-run this test after the change.",
         "playbook_ok": "No action needed now. Re-test this category whenever your prompt template or model provider changes.",
@@ -27,14 +27,14 @@ CATEGORY_MAP = {
     },
     "encoding": {
         "name": "Filter evasion",
-        "subtitle": "encoding &middot; obfuscated instruction bypass",
+        "subtitle": "encoding &middot; disguised requests slip past filters",
         "desc": "Blocked requests were encoded (Base64, ROT13, hex, etc.) to see if filtering only checks plain text.",
         "playbook_fix": "Decode and re-check incoming text against your safety filters before passing it to the model, rather than filtering only the raw text as received.",
         "playbook_ok": "No action needed now. Re-test this category whenever you change model version or provider, since evasion resistance varies significantly between models.",
     },
     "sysprompt_extraction": {
         "name": "Prompt leak",
-        "subtitle": "sysprompt_extraction &middot; instruction disclosure",
+       "subtitle": "sysprompt_extraction &middot; your internal instructions get exposed",
         "desc": "Your system prompt is your product logic. When this succeeds, the model can be talked into repeating it back word for word.",
         "playbook_fix": "Add an explicit non-disclosure clause to the system prompt itself, and never place information you'd consider confidential (pricing rules, internal policy) directly in the prompt -- move it to a backend check the model calls out to instead.",
         "playbook_ok": "No action needed now. Re-test whenever your system prompt content changes.",
@@ -75,6 +75,7 @@ def category_for(probe_classname):
 
 
 DETECTOR_PRIORITY = ["DecodeMatch", "AttackRogueString", "PromptExtraction", "DAN", "MitigationBypass"]
+PROBE_EVIDENCE_PRIORITY = {"encoding": ["InjectBase64", "InjectHex", "InjectROT13"],}
 
 
 def build_stats(eval_records):
@@ -118,19 +119,36 @@ def build_stats(eval_records):
 
 
 def build_evidence(hit_records):
-    """Grab one example hit (attack that succeeded) per category."""
-    evidence = {}
+    """Grab one example hit (attack that succeeded) per category, preferring
+    specific sub-probes where some are more illustrative than others."""
+    by_cat = defaultdict(list)
     for rec in hit_records:
         cat = category_for(rec.get("probe", ""))
-        if cat is None or cat in evidence:
+        if cat is None:
             continue
+        by_cat[cat].append(rec)
+
+    evidence = {}
+    for cat, recs in by_cat.items():
+        chosen = None
+        preferred = PROBE_EVIDENCE_PRIORITY.get(cat, [])
+        for pref in preferred:
+            for r in recs:
+                if pref in r.get("probe", ""):
+                    chosen = r
+                    break
+            if chosen:
+                break
+        if chosen is None:
+            chosen = recs[0]
+
         try:
-            prompt_turns = rec.get("prompt", {}).get("turns", [])
+            prompt_turns = chosen.get("prompt", {}).get("turns", [])
             sent_text = prompt_turns[-1]["content"]["text"] if prompt_turns else "(prompt unavailable)"
         except (KeyError, IndexError, TypeError):
             sent_text = "(prompt unavailable)"
         try:
-            returned_text = rec.get("output", {}).get("text", "(output unavailable)")
+            returned_text = chosen.get("output", {}).get("text", "(output unavailable)")
         except (AttributeError, TypeError):
             returned_text = "(output unavailable)"
         evidence[cat] = {
@@ -138,7 +156,6 @@ def build_evidence(hit_records):
             "returned": returned_text.strip(),
         }
     return evidence
-
 
 def pct(fails, total):
     if total == 0:
@@ -226,6 +243,25 @@ def render_html(stats, evidence, target_name, run_id, scan_date):
     </div>
   </div>''')
 
+
+    critical_cats = []
+    for cat in ORDER:
+        s = stats.get(cat, {"passed": 0, "fails": 0})
+        total = s["passed"] + s["fails"]
+        rate = pct(s["fails"], total)
+        if rate >= 10.0:
+            critical_cats.append((CATEGORY_MAP[cat]["name"], rate))
+    critical_cats.sort(key=lambda x: x[1], reverse=True)
+
+    if critical_cats:
+        top_names = [c[0] for c in critical_cats[:2]]
+        if len(top_names) == 1:
+            start_here = f'Start here: fix <b>{top_names[0]}</b> first, it\'s your highest-risk category.'
+        else:
+            start_here = f'Start here: fix <b>{top_names[0]}</b> and <b>{top_names[1]}</b> first, they\'re your highest-risk categories.'
+    else:
+        start_here = 'No critical categories found. Keep this scan in your regular re-test schedule.'
+
     overall_exposed = pct(total_fails, total_evaluated)
     
     circumference = 439.8
@@ -233,6 +269,7 @@ def render_html(stats, evidence, target_name, run_id, scan_date):
 
     return TEMPLATE.format(
         target_name=html.escape(target_name),
+        start_here=start_here,
         scan_date=scan_date,
         run_id=html.escape(run_id),
         overall_exposed=overall_exposed,
@@ -355,12 +392,14 @@ TEMPLATE = """<!DOCTYPE html>
     </div>
   </div>
 
+  <div class="start-here">{start_here}</div>
+
   <div class="section-title">Findings</div>
   {cards}
 
-  <footer>
+    <footer>
     <div>ARISEC &middot; AI SECURITY SCANNING</div>
-    <div>GENERATED FROM LIVE SCAN DATA</div>
+    <div>Questions about this report? Reply to the email this came with.</div>
   </footer>
 </div>
 </body>

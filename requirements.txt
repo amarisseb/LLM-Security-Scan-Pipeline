@@ -1,9 +1,6 @@
-fastapi
-uvicorn[standard]
-pydantic[email]
-garak
-playwright
-# Used by run_scan.run_api_scan for direct API-key scanning (garak's LiteLLM
-# generator). garak treats this as an optional extra; it's a hard dependency
-# here since that scan mode is a built-in feature, not opt-in.
-litellm
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+pydantic[email]==2.13.4
+garak==0.15.1
+playwright==1.64.1
+httpx==0.28.1

@@ -68,12 +68,13 @@ def current_attestation() -> dict:
 def log_attestation(
     *,
     ip: str,
-    user_email: str,
+    user_email: str | None,
     target_url: str,
     version: int = CURRENT_ATTESTATION_VERSION,
     skip_ai_check: bool = False,
     mode: str = "web",
     log_path: str | os.PathLike | None = None,
+    principal_id: str | None = None,
 ) -> dict:
     """Append one attestation record and return it.
 
@@ -88,6 +89,7 @@ def log_attestation(
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "ip": ip,
         "user_email": user_email,
+        "principal_id": principal_id,
         "mode": mode,
         "target_url": target_url,
         "attestation_version": version,

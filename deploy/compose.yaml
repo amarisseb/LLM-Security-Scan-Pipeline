@@ -1,0 +1,90 @@
+name: arisec-production
+services:
+  app:
+    image: arisec-production:local
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
+    init: true
+    restart: unless-stopped
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=512m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 2.0
+    mem_limit: 4g
+    pids_limit: 256
+    shm_size: 256m
+    stop_grace_period: 30s
+    environment:
+      ARISEC_PUBLIC_ORIGIN: ${ARISEC_PUBLIC_ORIGIN:?Set a canonical HTTPS origin}
+      ARISEC_SELF_SERVE: "1"
+      ARISEC_LOCAL_DEMO: "0"
+      ARISEC_LOCAL_PREVIEW: "0"
+      DATA_DIR: /data
+      FORWARDED_ALLOW_IPS: 172.30.23.2
+      ARISEC_SCAN_TIMEOUT_SECONDS: "600"
+      SCAN_RETENTION_DAYS: "7"
+    volumes:
+      - arisec_data:/data
+    networks:
+      edge:
+        ipv4_address: 172.30.23.3
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).close()"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+  caddy:
+    image: caddy:2-alpine
+    init: true
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=32m
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    cpus: 0.5
+    mem_limit: 256m
+    pids_limit: 128
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      ARISEC_PUBLIC_ORIGIN: ${ARISEC_PUBLIC_ORIGIN:?Set a canonical HTTPS origin}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      edge:
+        ipv4_address: 172.30.23.2
+    depends_on:
+      app:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+networks:
+  edge:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.23.0/29
+volumes:
+  arisec_data:
+  caddy_data:
+  caddy_config:
