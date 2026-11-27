@@ -12,10 +12,6 @@ Arisec helps teams shipping AI features see where their app goes off task before
 - **What to change.** Keep the summary instruction in the application. Pass the customer message separately as content to summarise.
 - **How to check it.** Replay the flagged message and confirm the assistant stays on task. Then try an ordinary message and confirm it still produces a useful summary.
 
-![Arisec action plan showing the recommended change, an ordinary-use check and a retest of the flagged message](docs/images/arisec-action-plan.png)
-
-*Captured in the working Arisec preview using the illustrative report.*
-
 [Download the interactive sample report (HTML)](sample_report.html)
 
 ## What I built
@@ -36,7 +32,7 @@ py -3.12 -m venv .venv
 .\start-customer-preview.cmd
 ```
 
-Keep that window open. Open [Arisec on your computer](http://127.0.0.1:8000/), then select **Demo**. To see the action plan pictured above, expand **Optional: see a broader report layout (a different example)** and open the **Prompt injection** finding. This walkthrough uses a fictional example and requires no account, API key or real endpoint.
+Keep that window open. Open [Arisec on your computer](http://127.0.0.1:8000/), select **Demo**, then expand **Optional: see a broader report layout (a different example)**. Open **Prompt injection** to see the action plan. This walkthrough uses a fictional example and requires no account, API key or real endpoint.
 
 ## Technical evidence
 
