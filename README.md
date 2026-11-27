@@ -4,11 +4,17 @@
 
 Arisec helps teams assess an AI feature before they ship it. Connect an authorised application or model, run a security assessment and get a report that pairs flagged responses with a plain-English explanation, a concrete next step and a retest.
 
-[Interactive sample report (download HTML)](sample_report.html) · [Run Arisec locally](#try-it-locally)
+[See an example finding](#what-a-finding-gives-you) · [Run Arisec locally](#try-it-locally)
 
 ## What a finding gives you
 
-In the sample report, a support assistant follows an instruction hidden in a customer message and abandons its summary. Arisec shows the response, explains why it went off task and recommends a specific change: keep the summary instruction in the application and pass the customer message separately. The action plan gives the team two checks to run afterwards. Replay the flagged message to see whether the assistant stays on task, then try an ordinary message to confirm the feature still works.
+This example shows how Arisec turns a flagged response into an action plan.
+
+- **What happened.** A support assistant was asked to summarise a customer message. It followed an instruction hidden in the message and returned an unrelated reply.
+- **What to change.** Keep the summary instruction in the application. Pass the customer message separately as content to summarise.
+- **How to check it.** Replay the flagged message and confirm the assistant stays on task. Then try an ordinary message and confirm it still produces a useful summary.
+
+[Download the interactive sample report (HTML)](sample_report.html)
 
 An early **GPT‑4o‑mini provider scan** recorded **2,135 task-hijacking detector matches across 3,840 evaluations**. Arisec’s separate audit command reproduced that count from the original scan records. Each match is a result to investigate. Application impact depends on what the AI can access or do.
 
